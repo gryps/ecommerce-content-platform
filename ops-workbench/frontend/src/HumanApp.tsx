@@ -5,16 +5,7 @@ import { Auth } from "./components/Auth";
 import { AccountDialog } from "./components/shell/AccountDialog";
 import { AppHeader } from "./components/shell/AppHeader";
 import { SidebarNav } from "./components/shell/SidebarNav";
-import {
-  getActiveTitle,
-  getExpandedModule,
-  getHeaderSubtitle,
-  getRoleModuleTitle,
-  roleModules,
-  validExpandedModules,
-  type ModuleNavItem,
-  type ModuleNavKey,
-} from "./components/shell/moduleNavigation";
+import { useNavigationState } from "./components/shell/useNavigationState";
 import { AiVideoProduction } from "./modules/ai-video-production/AiVideoProduction";
 import { ImageProduction } from "./modules/image-production/ImageProduction";
 import { BusinessModelSettings } from "./modules/model-config/BusinessModelSettings";
@@ -24,57 +15,16 @@ import { CopyLibrary, DraftProduction, Flow, Materials, MusicLibrary } from "./m
 import type {
   ClassifiedMaterial,
   CopyItem,
-  ImageView,
   JianyingDraft,
   MusicResource,
   Narration,
-  OperationView,
-  PlatformModule,
   Product,
   User,
-  View,
 } from "./types";
-
-const storedPlatformModule = (): PlatformModule => {
-  const stored = localStorage.getItem("platform_module");
-  const validModules: PlatformModule[] = [
-    "operations",
-    "procurement",
-    "hostControl",
-    "adPlanning",
-    "customerService",
-    "warehouse",
-    "finance",
-    "project",
-    "images",
-    "aiVideo",
-    "models",
-    "video",
-  ];
-  return validModules.includes(stored as PlatformModule) ? stored as PlatformModule : "video";
-};
-
-const storedExpandedModules = (module: PlatformModule): ModuleNavKey[] => {
-  const stored = localStorage.getItem("platform_expanded_modules");
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) return parsed.filter((key): key is ModuleNavKey => validExpandedModules.includes(key));
-    } catch {
-      localStorage.removeItem("platform_expanded_modules");
-    }
-  }
-  const initial = getExpandedModule(module);
-  return initial ? [initial] : [];
-};
 
 export default function HumanApp() {
   const [initialized, setInitialized] = useState<boolean | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [module, setModule] = useState<PlatformModule>(storedPlatformModule);
-  const [view, setView] = useState<View>("flow");
-  const [imageView, setImageView] = useState<ImageView>("overview");
-  const [operationView, setOperationView] = useState<OperationView>("overview");
   const [products, setProducts] = useState<Product[]>([]);
   const [materials, setMaterials] = useState<ClassifiedMaterial[]>([]);
   const [copies, setCopies] = useState<CopyItem[]>([]);
@@ -95,8 +45,7 @@ export default function HumanApp() {
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
   const [accountError, setAccountError] = useState("");
-  const [expandedModules, setExpandedModules] = useState<ModuleNavKey[]>(() => storedExpandedModules(module));
-  const [selectedSecondaryOwner, setSelectedSecondaryOwner] = useState<ModuleNavKey | "">("");
+  const navigation = useNavigationState();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -142,14 +91,6 @@ export default function HumanApp() {
   useEffect(() => {
     localStorage.setItem("human_sidebar_collapsed", sidebarCollapsed ? "1" : "0");
   }, [sidebarCollapsed]);
-
-  useEffect(() => {
-    localStorage.setItem("platform_module", module);
-  }, [module]);
-
-  useEffect(() => {
-    localStorage.setItem("platform_expanded_modules", JSON.stringify(expandedModules));
-  }, [expandedModules]);
 
   const act = async (work: () => Promise<unknown>, success: string) => {
     setError("");
@@ -217,47 +158,33 @@ export default function HumanApp() {
   if (initialized === null) return <main className="human-loading"><LoaderCircle className="spin" /> 正在启动</main>;
   if (!user) return <Auth initialized={initialized} done={value => { setUser(value); refresh(); }} />;
 
-  const roleModuleTitle = getRoleModuleTitle(module);
-  const activeTitle = getActiveTitle(module, view, imageView, operationView);
-  const headerSubtitle = getHeaderSubtitle(module);
   const operationMessage = error || notice || (loading ? "正在刷新数据" : "空闲");
   const operationTone = error ? "error" : loading ? "busy" : notice ? "success" : "idle";
   const userDisplayName = user.display_name || user.username;
 
-  const handlePrimaryModuleClick = (item: ModuleNavItem) => {
-    const hasSecondaryNav = item.key === "operationsCenter" || item.key === "operations" || item.key === "video" || item.key === "images";
-    if (hasSecondaryNav) {
-      setExpandedModules(current => current.includes(item.key) ? current.filter(key => key !== item.key) : [...current, item.key]);
-    } else {
-      setExpandedModules([]);
-    }
-    setSelectedSecondaryOwner("");
-    setModule(item.key === "operationsCenter" ? roleModules[0][0] : item.key);
-  };
-
   return <div className={`human-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
     <SidebarNav
       sidebarCollapsed={sidebarCollapsed}
-      module={module}
-      view={view}
-      imageView={imageView}
-      operationView={operationView}
-      roleModuleTitle={roleModuleTitle}
-      expandedModules={expandedModules}
-      selectedSecondaryOwner={selectedSecondaryOwner}
+      module={navigation.module}
+      view={navigation.view}
+      imageView={navigation.imageView}
+      operationView={navigation.operationView}
+      roleModuleTitle={navigation.roleModuleTitle}
+      expandedModules={navigation.expandedModules}
+      selectedSecondaryOwner={navigation.selectedSecondaryOwner}
       username={user.username}
       onToggleSidebar={() => setSidebarCollapsed(value => !value)}
-      onPrimaryModuleClick={handlePrimaryModuleClick}
-      onSelectRoleModule={(owner, key) => { setSelectedSecondaryOwner(owner); setModule(key); }}
-      onSelectOperationView={(owner, key) => { setSelectedSecondaryOwner(owner); setModule("operations"); setOperationView(key); }}
-      onSelectVideoView={(owner, key) => { setSelectedSecondaryOwner(owner); setModule("video"); setView(key); }}
-      onSelectImageView={(owner, key) => { setSelectedSecondaryOwner(owner); setModule("images"); setImageView(key); }}
+      onPrimaryModuleClick={navigation.handlePrimaryModuleClick}
+      onSelectRoleModule={navigation.selectRoleModule}
+      onSelectOperationView={navigation.selectOperationView}
+      onSelectVideoView={navigation.selectVideoView}
+      onSelectImageView={navigation.selectImageView}
       onLogout={() => { clearToken(); setUser(null); }}
     />
     <main>
       <AppHeader
-        subtitle={headerSubtitle}
-        title={activeTitle ?? "模型配置"}
+        subtitle={navigation.headerSubtitle}
+        title={navigation.activeTitle ?? "模型配置"}
         operationMessage={operationMessage}
         operationTone={operationTone}
         userDisplayName={userDisplayName}
@@ -283,16 +210,16 @@ export default function HumanApp() {
         onSaveProfile={saveAccountProfile}
         onSavePassword={savePassword}
       />}
-      {module === "video" && view === "flow" && <Flow materials={materials} copies={copies} music={music} drafts={drafts} />}
-      {module === "video" && view === "materials" && <Materials products={products} act={act} />}
-      {module === "video" && view === "copy" && <CopyLibrary copies={copies} narrations={narrations} act={act} reload={refresh} />}
-      {module === "video" && view === "music" && <MusicLibrary music={music} act={act} />}
-      {module === "video" && view === "production" && <DraftProduction copies={copies} narrations={narrations} music={music} drafts={drafts} act={act} />}
-      {module === "aiVideo" && <AiVideoProduction onError={setError} onNotice={setNotice} />}
-      {module === "operations" && <OperationsCenter view={operationView} onError={setError} onNotice={setNotice} />}
-      {roleModuleTitle && <RoleCenter module={module} />}
-      {module === "images" && <ImageProduction view={imageView} onError={setError} onNotice={setNotice} />}
-      {module === "models" && <BusinessModelSettings onError={setError} onNotice={setNotice} />}
+      {navigation.module === "video" && navigation.view === "flow" && <Flow materials={materials} copies={copies} music={music} drafts={drafts} />}
+      {navigation.module === "video" && navigation.view === "materials" && <Materials products={products} act={act} />}
+      {navigation.module === "video" && navigation.view === "copy" && <CopyLibrary copies={copies} narrations={narrations} act={act} reload={refresh} />}
+      {navigation.module === "video" && navigation.view === "music" && <MusicLibrary music={music} act={act} />}
+      {navigation.module === "video" && navigation.view === "production" && <DraftProduction copies={copies} narrations={narrations} music={music} drafts={drafts} act={act} />}
+      {navigation.module === "aiVideo" && <AiVideoProduction onError={setError} onNotice={setNotice} />}
+      {navigation.module === "operations" && <OperationsCenter view={navigation.operationView} onError={setError} onNotice={setNotice} />}
+      {navigation.roleModuleTitle && <RoleCenter module={navigation.module} />}
+      {navigation.module === "images" && <ImageProduction view={navigation.imageView} onError={setError} onNotice={setNotice} />}
+      {navigation.module === "models" && <BusinessModelSettings onError={setError} onNotice={setNotice} />}
     </main>
   </div>;
 }
