@@ -176,42 +176,50 @@ function DirectorAndShots({ controller }: { controller: Controller }) {
 function TaskDispatcher({ controller }: { controller: Controller }) {
   const firstWorkflow = controller.workflows[0];
   const [workflowName, setWorkflowName] = useState(firstWorkflow?.name || "text_to_video");
-  const [engine, setEngine] = useState("vendor_video");
-  const [prompt, setPrompt] = useState("");
   const [submitAfterCreate, setSubmitAfterCreate] = useState(true);
-  const firstShotPrompt = controller.selectedShots[0]?.prompt || "";
   const selectedWorkflow = controller.workflows.find(item => item.name === workflowName);
+  const syncPayload = buildBusinessPrompt(controller.selectedProject, controller.selectedShots);
 
   useEffect(() => {
     if (firstWorkflow && !controller.workflows.some(item => item.name === workflowName)) {
       setWorkflowName(firstWorkflow.name);
-      setEngine(firstWorkflow.default_engine);
     }
   }, [controller.workflows, firstWorkflow, workflowName]);
 
-  useEffect(() => {
-    if (selectedWorkflow) setEngine(selectedWorkflow.default_engine);
-  }, [selectedWorkflow?.name]);
-
-  useEffect(() => {
-    if (!prompt && firstShotPrompt) setPrompt(firstShotPrompt);
-  }, [firstShotPrompt, prompt]);
-
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await controller.createTask(workflowName, prompt, engine, submitAfterCreate);
-    setPrompt("");
+    await controller.createTask(workflowName, syncPayload, selectedWorkflow?.default_engine || "vendor_video", submitAfterCreate);
   }
 
   return <form className="human-card ai-task-dispatcher" onSubmit={submit}>
-    <div className="human-card-title"><h2>任务调度</h2><span>记录平台任务，并提交到 ComfyUI 或厂商视频 API</span></div>
+    <div className="human-card-title"><h2>同步到生产画布</h2><span>平台只提交业务输入，节点参数留在 ComfyUI</span></div>
     <label>工作流<select value={workflowName} onChange={event => setWorkflowName(event.target.value)}>{controller.workflows.map(item => <option key={item.name} value={item.name}>{item.label}</option>)}</select></label>
-    <label>执行引擎<select value={engine} onChange={event => setEngine(event.target.value)}><option value="vendor_video">厂商视频API</option><option value="comfyui">ComfyUI</option></select></label>
-    {selectedWorkflow && <div className="ai-workflow-template-note"><b>{selectedWorkflow.mode}</b><span>{selectedWorkflow.description}</span>{selectedWorkflow.availability_note && <small>{selectedWorkflow.availability_note}</small>}</div>}
-    <label className="wide">提示词<textarea required value={prompt} onChange={event => setPrompt(event.target.value)} /></label>
+    {selectedWorkflow && <div className="ai-workflow-template-note"><b>{selectedWorkflow.mode}</b><span>{selectedWorkflow.description} · 执行：{selectedWorkflow.default_engine === "comfyui" ? "ComfyUI" : "厂商视频API"}</span>{selectedWorkflow.availability_note && <small>{selectedWorkflow.availability_note}</small>}</div>}
+    <label className="wide">同步内容预览<textarea readOnly value={syncPayload} /></label>
     <label className="ai-inline-check"><input type="checkbox" checked={submitAfterCreate} onChange={event => setSubmitAfterCreate(event.target.checked)} />创建后立即提交</label>
-    <button type="submit" disabled={controller.loading || !controller.selectedProject || !prompt.trim()}><Clapperboard />创建任务</button>
+    <button type="submit" disabled={controller.loading || !controller.selectedProject || !syncPayload.trim()}><Clapperboard />创建任务</button>
   </form>;
+}
+
+function buildBusinessPrompt(project: Controller["selectedProject"], shots: Controller["selectedShots"]) {
+  if (!project) return "先创建项目，系统会把商品名、卖点、人群、视觉调性和分镜整理成同步内容。";
+  const shotLines = shots.length
+    ? shots.map(shot => [
+      `${shot.order}. ${shot.title} / ${shot.duration_seconds}s`,
+      shot.visual_goal ? `视觉：${shot.visual_goal}` : "",
+      shot.camera ? `运镜：${shot.camera}` : "",
+      shot.prompt ? `提示词：${shot.prompt}` : "",
+      shot.negative_prompt ? `负向：${shot.negative_prompt}` : "",
+    ].filter(Boolean).join("\n   ")).join("\n")
+    : "尚未生成分镜";
+  return [
+    `项目：${project.name}`,
+    `商品：${project.product_name || "未填写"}`,
+    `核心卖点：${project.selling_points || "未填写"}`,
+    `目标人群：${project.audience || "未填写"}`,
+    `视觉调性：${project.tone || "未填写"}`,
+    `分镜：\n${shotLines}`,
+  ].filter(Boolean).join("\n");
 }
 
 function TaskList({ controller }: { controller: Controller }) {
