@@ -7,11 +7,6 @@ import type { GenerationTask } from "./types";
 
 const assetKinds = [
   ["product", "商品图"],
-  ["character", "人物三视图"],
-  ["environment", "环境图"],
-  ["prop", "道具图"],
-  ["keyframe", "关键帧"],
-  ["reference", "风格参考"],
 ];
 
 type Controller = ReturnType<typeof useAiVideoProductionController>;
@@ -44,7 +39,7 @@ export function AiVideoProduction({ onError, onNotice }: { onError: (value: stri
     <ComfyUiBridge controller={controller} />
     <div className="human-metrics">
       <article><b>{controller.store.projects.length}</b><span>宣传片项目</span></article>
-      <article><b>{controller.selectedAssets.length}</b><span>业务资产</span></article>
+      <article><b>{controller.selectedProductAssets.length}</b><span>商品图</span></article>
       <article><b>{controller.selectedShots.length}</b><span>导演分镜</span></article>
       <article><b>{controller.selectedTasks.length}</b><span>生成任务</span></article>
     </div>
@@ -69,7 +64,7 @@ function ComfyUiBridge({ controller }: { controller: Controller }) {
     <div>
       <small>ComfyUI 生产引擎</small>
       <h2>AI宣传片控制台</h2>
-      <p>平台保留商品、资产、分镜、任务和输出记录；节点画布和 workflow 编排在 ComfyUI 中完成。</p>
+      <p>平台只保留商品图、分镜、任务和输出记录；场景图、关键帧、风格图等由模型在 ComfyUI workflow 中生成。</p>
     </div>
     <div className="ai-comfy-actions">
       <button type="button" onClick={controller.checkComfyUI} disabled={controller.loading}><Radio />检测连接</button>
@@ -109,9 +104,9 @@ function ProjectPicker({ controller }: { controller: Controller }) {
     <div className="ai-project-list">
       {controller.store.projects.map(project => <article key={project.id} className={project.id === controller.selectedProject?.id ? "active" : ""}>
         <button type="button" onClick={() => controller.setSelectedProjectId(project.id)}><b>{project.name}</b><span>{project.product_name || "未填写商品名"}</span></button>
-        <button type="button" className="human-danger compact" disabled={controller.loading} onClick={() => setConfirmation({ title: `删除项目“${project.name}”？`, message: "将删除项目下的资产、分镜、任务和事件记录，无法恢复。", onConfirm: () => controller.deleteProject(project.id) })}>删除</button>
+        <button type="button" className="human-danger compact" disabled={controller.loading} onClick={() => setConfirmation({ title: `删除项目“${project.name}”？`, message: "将删除项目下的商品图、分镜、任务和事件记录，无法恢复。", onConfirm: () => controller.deleteProject(project.id) })}>删除</button>
       </article>)}
-      {!controller.store.projects.length && <p className="human-note">先创建项目，再登记资产和调度 ComfyUI。</p>}
+      {!controller.store.projects.length && <p className="human-note">先创建项目，再上传商品图和调度 ComfyUI。</p>}
     </div>
     <ConfirmDeleteDialog confirmation={confirmation} close={() => setConfirmation(null)} />
   </section>;
@@ -143,17 +138,17 @@ function Assets({ controller }: { controller: Controller }) {
   }
 
   return <section className="human-card">
-    <div className="human-card-title"><h2>业务资产</h2><span>资产保存在平台，作为 ComfyUI 和厂商 API 的输入</span></div>
+    <div className="human-card-title"><h2>商品图</h2><span>用户提供商品实拍图；其他画面图由模型生成</span></div>
     <form className="ai-asset-form" onSubmit={submit}>
       <label>类型<select value={kind} onChange={event => setKind(event.target.value)}>{assetKinds.map(item => <option key={item[0]} value={item[0]}>{item[1]}</option>)}</select></label>
       <label>名称<input required value={name} onChange={event => setName(event.target.value)} /></label>
-      <label className="wide">资产文件<input type="file" accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx" onChange={chooseFile} /></label>
-      <label className="wide">备注<textarea value={notes} onChange={event => setNotes(event.target.value)} /></label>
-      <button type="submit" disabled={!controller.selectedProject || controller.loading}><Upload />{file ? "上传资产" : "登记资产"}</button>
+      <label className="wide">商品图片<input type="file" accept="image/*" onChange={chooseFile} /></label>
+      <label className="wide">备注<textarea placeholder="可写角度、材质、颜色或不可改变的商品细节" value={notes} onChange={event => setNotes(event.target.value)} /></label>
+      <button type="submit" disabled={!controller.selectedProject || controller.loading}><Upload />{file ? "上传商品图" : "登记商品图"}</button>
     </form>
     <div className="ai-asset-grid">
-      {controller.selectedAssets.map(asset => <article key={asset.id}><b>{asset.name}</b><span>{asset.kind}</span><p>{asset.notes || asset.file_path || "待补充文件和说明"}</p></article>)}
-      {!controller.selectedAssets.length && <p className="human-note">当前项目暂无资产。</p>}
+      {controller.selectedProductAssets.map(asset => <article key={asset.id}><b>{asset.name}</b><span>商品图</span><p>{asset.notes || asset.file_path || "待补充文件和说明"}</p></article>)}
+      {!controller.selectedProductAssets.length && <p className="human-note">当前项目暂无商品图。场景图、关键帧和风格图无需在这里录入。</p>}
     </div>
   </section>;
 }
@@ -191,7 +186,7 @@ function TaskDispatcher({ controller }: { controller: Controller }) {
   }
 
   return <form className="human-card ai-task-dispatcher" onSubmit={submit}>
-    <div className="human-card-title"><h2>同步到生产画布</h2><span>平台只提交业务输入，节点参数留在 ComfyUI</span></div>
+    <div className="human-card-title"><h2>同步到生产画布</h2><span>平台提交商品图和业务输入，其他视觉资产由模型生成</span></div>
     <label>工作流<select value={workflowName} onChange={event => setWorkflowName(event.target.value)}>{controller.workflows.map(item => <option key={item.name} value={item.name}>{item.label}</option>)}</select></label>
     {selectedWorkflow && <div className="ai-workflow-template-note"><b>{selectedWorkflow.mode}</b><span>{selectedWorkflow.description} · 执行：{selectedWorkflow.default_engine === "comfyui" ? "ComfyUI" : "厂商视频API"}</span>{selectedWorkflow.availability_note && <small>{selectedWorkflow.availability_note}</small>}</div>}
     <label className="wide">同步内容预览<textarea readOnly value={syncPayload} /></label>
@@ -217,6 +212,8 @@ function buildBusinessPrompt(project: Controller["selectedProject"], shots: Cont
     `核心卖点：${project.selling_points || "未填写"}`,
     `目标人群：${project.audience || "未填写"}`,
     `视觉调性：${project.tone || "未填写"}`,
+    "用户提供：商品图",
+    "模型生成：场景图、关键帧、风格参考图、过渡画面和最终视频",
     `分镜：\n${shotLines}`,
   ].filter(Boolean).join("\n");
 }

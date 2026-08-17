@@ -16,7 +16,7 @@ _WORKFLOW_TEMPLATES = [
     WorkflowTemplate(
         name="image_to_video",
         label="图生视频",
-        description="用商品图、场景图或关键帧驱动视频生成，适合电商商品展示。",
+        description="用用户提供的商品图驱动视频生成，场景图和关键帧由模型生成。",
         default_engine="vendor_video",
         mode="i2v",
         required_asset_kinds=["product"],
@@ -24,15 +24,15 @@ _WORKFLOW_TEMPLATES = [
     WorkflowTemplate(
         name="first_last_frame_video",
         label="首尾帧视频",
-        description="用首帧和尾帧控制镜头起止状态，适合产品转场和动作闭环。",
+        description="根据商品图和分镜先生成首尾帧，再控制镜头起止状态。",
         default_engine="vendor_video",
         mode="first_last_frame",
-        required_asset_kinds=["keyframe"],
+        required_asset_kinds=["product"],
     ),
     WorkflowTemplate(
         name="comfyui_business_workflow",
         label="ComfyUI业务工作流",
-        description="平台登记资产和任务，节点编排在 ComfyUI 画布里完成。",
+        description="平台登记商品图和任务，场景、关键帧、风格图等节点在 ComfyUI 画布里生成。",
         default_engine="comfyui",
         mode="workflow",
         required_asset_kinds=["product"],

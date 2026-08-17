@@ -50,6 +50,10 @@ export function useAiVideoProductionController() {
     () => store.assets.filter(asset => asset.project_id === selectedProject?.id),
     [selectedProject?.id, store.assets],
   );
+  const selectedProductAssets = useMemo(
+    () => selectedAssets.filter(asset => asset.kind === "product"),
+    [selectedAssets],
+  );
   const selectedShots = useMemo(
     () => store.shots.filter(shot => shot.project_id === selectedProject?.id).sort((a, b) => a.order - b.order),
     [selectedProject?.id, store.shots],
@@ -126,7 +130,7 @@ export function useAiVideoProductionController() {
         method: "POST",
         body: JSON.stringify({ project_id: selectedProject.id, kind, name, notes }),
       });
-      setMessage("资产已登记");
+      setMessage("商品图已登记");
       await refresh();
       return asset;
     } catch (reason) {
@@ -148,7 +152,7 @@ export function useAiVideoProductionController() {
       form.set("notes", notes);
       form.set("file", file);
       const asset = await api<Asset>("/ai-video/assets/upload", { method: "POST", body: form });
-      setMessage("资产文件已上传");
+      setMessage("商品图已上传");
       await refresh();
       return asset;
     } catch (reason) {
@@ -170,7 +174,7 @@ export function useAiVideoProductionController() {
           engine,
           workflow_name: workflowName,
           prompt,
-          input_asset_ids: selectedAssets.map(asset => asset.id),
+          input_asset_ids: selectedProductAssets.map(asset => asset.id),
         }),
       });
       if (submitAfterCreate) {
@@ -254,6 +258,7 @@ export function useAiVideoProductionController() {
     selectedProject,
     selectedProjectId,
     selectedAssets,
+    selectedProductAssets,
     selectedShots,
     selectedTasks,
     loading,
