@@ -52,6 +52,7 @@ class AiVideoRepository:
     def ensure_ready(self) -> None:
         self.storage_root.mkdir(parents=True, exist_ok=True)
         (self.storage_root / "uploads").mkdir(parents=True, exist_ok=True)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         with session_scope() as session:
             self._import_legacy_json_if_needed(session)
 
@@ -261,12 +262,16 @@ class AiVideoRepository:
             return self._task_model(row)
 
     def _import_legacy_json_if_needed(self, session: Session) -> None:
-        if self._imported_legacy_json or not self.path.exists():
+        marker_path = self.path.with_suffix(f"{self.path.suffix}.imported")
+        if self._imported_legacy_json or marker_path.exists() or not self.path.exists():
+            self._imported_legacy_json = True
             return
         with self._import_lock:
-            if self._imported_legacy_json:
+            if self._imported_legacy_json or marker_path.exists():
+                self._imported_legacy_json = True
                 return
             if session.scalar(select(AiVideoProject.id).limit(1)):
+                marker_path.touch()
                 self._imported_legacy_json = True
                 return
             store = WorkbenchStore.model_validate(json.loads(self.path.read_text(encoding="utf-8")))
@@ -278,6 +283,7 @@ class AiVideoRepository:
                 session.add(self._shot_row(shot))
             for task in store.tasks:
                 session.add(self._task_row(task))
+            marker_path.touch()
             self._imported_legacy_json = True
 
     @staticmethod
