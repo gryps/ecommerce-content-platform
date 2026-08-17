@@ -105,7 +105,21 @@ scripts/write_deploy_manifest.py
 - 远端 fresh DB 使用 `init_workbench_schema()` 初始化后 `alembic stamp head`。
 - 旧 Alembic 全量历史里有 PostgreSQL 风格约束迁移，不适合直接对 fresh SQLite 从头 upgrade。
 - 当前 SQLite 已升级到 `n06g8h0i3j47 (head)`。
-- AI 宣传片已经从 `ops-workbench-runtime/ai-video/databases/workbench.json` 迁入 SQLite 表；旧 JSON 暂时保留为迁移来源和备份，不再作为正常读写主库。
+- AI 宣传片已经从 `ops-workbench-runtime/ai-video/databases/workbench.json` 迁入 SQLite 表；旧 JSON 不再作为正常读写主库。
+- 旧 JSON 导入现在有一次性 marker 防重复机制：`ops-workbench-runtime/ai-video/databases/workbench.json.imported`。
+- 曾反复出现的 10 个 `ces` 当前项目来自旧 JSON 在数据库清空后再次导入；已删除空项目，并把旧 JSON 归档为 `workbench.json.archived-ces-20260817`。
+- 当前 AI 宣传片项目表应为空，可用下面命令确认：
+
+```bash
+sqlite3 /home/gryps/apps/ecommerce-ops-platform/ops-workbench-runtime/databases/workbench.db \
+  "select count(*) from wb_ai_video_projects;"
+```
+
+期望结果：
+
+```text
+0
+```
 
 ## 5. ComfyUI 服务
 
@@ -224,15 +238,22 @@ NO_PROXY 包含 localhost、127.0.0.1、192.168.31.24
 - `scripts/verify_deploy.sh` 可检查平台服务、ComfyUI、数据库版本、静态资源和健康接口。
 - `scripts/write_deploy_manifest.py` 会写入 `ops-workbench-runtime/DEPLOY_MANIFEST.json`。
 - 远端 venv 已安装 `requirements-dev.txt`，可直接运行 `../.venv/bin/python -m pytest -q`。
+- AI 宣传片页面已按生产型工作台重新整理布局：左侧只放项目选择和新建项目，商品图、导演/分镜、任务提交和任务清单放到主工作区。
+- AI 宣传片的资产口径已收敛为“用户/平台提供商品图，其他场景图、关键帧、风格参考图、过渡画面和最终视频由模型生成”。
+- AI 宣传片商品图可手动上传，也可引用图片生产模块已审核结果；引用入口会创建 `kind=product` 的 AI 视频资产。
+- AI 宣传片项目删除样式已与平台通用危险操作保持一致。
+- AI 宣传片旧 JSON 防重复导入已修复：`store.py` 会创建并识别 `.imported` marker，避免重启后把旧测试项目再次导入。
 
 当前最近验证：
 
 ```text
 ../.venv/bin/python -m pytest -q：37 passed
+../.venv/bin/python -m pytest -q tests/test_ai_video_workflow.py：5 passed
 npm --prefix frontend run build：通过
 scripts/verify_deploy.sh：通过
 product-video-automation：active
 comfyui：active
+AI 宣传片项目数：0
 ```
 
 注意：
@@ -241,6 +262,8 @@ comfyui：active
 - 当前没有配置真实视频厂商 API Key，因此本轮只完成 adapter mock 测试、任务事件落库和前端构建；尚未完成真实文生视频或图生视频出片验收。
 - AI 宣传片新增数据库表：项目、资产、分镜、生成任务、任务事件。
 - AI 宣传片新增任务提交边界：占位 workflow 会明确失败并写入事件；真实 ComfyUI API workflow 可沿同一入口提交。
+- AI 宣传片导入图片生产结果时目前引用原图片生产输出文件，不做物理复制；如果未来图片生产输出被删除，AI 宣传片资产可能失效。后续需要按业务决定是否改为导入时复制到 AI 视频资产目录。
+- 如果浏览器仍看到 10 个 `ces` 当前项目，优先硬刷新或清理站点缓存；服务端数据库当前应已清空。若仍复现，先查 `/api/v1/ai-video/projects` 返回和上面的 SQL 计数，不要先恢复旧 JSON。
 
 仍建议后续继续处理：
 
@@ -249,6 +272,7 @@ comfyui：active
 3. 把 ComfyUI workflow 注册表做成数据库或配置文件，不靠临时文件名约定。
 4. 用真实文生视频或图生视频跑通一次出片验收，记录输入、输出、厂商任务 ID、错误和耗时。
 5. 继续拆分视频生产旧大文件：优先处理 `app/services/jianying_drafts.py`、`app/services/music_resources.py`。
+6. 为 AI 宣传片补真实浏览器交互测试，覆盖项目新建/删除、商品图上传、引用图片生产结果、任务提交和任务刷新。
 
 ## 9. 仍未完成的平台模块
 
