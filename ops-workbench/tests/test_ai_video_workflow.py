@@ -104,10 +104,24 @@ def test_ai_video_vendor_adapter_submit_and_refresh(workbench_database, monkeypa
     submitted = awaitable(submit_generation_task(task.id, video_adapter=FakeVideoAdapter()))
     assert submitted.status == "running"
     assert submitted.provider_task_id == "remote-001"
-    refreshed = awaitable(refresh_generation_task(task.id, video_adapter=FakeVideoAdapter()))
+    async def fake_download(url, target_dir, index):
+        assert url == "https://example.test/output.mp4"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / f"output-{index + 1:02d}.mp4"
+        target.write_bytes(b"video-bytes")
+        return str(target)
+
+    refreshed = awaitable(
+        refresh_generation_task(
+            task.id,
+            video_adapter=FakeVideoAdapter(),
+            output_downloader=fake_download,
+        )
+    )
     assert refreshed.status == "succeeded"
-    assert refreshed.output_paths == ["https://example.test/output.mp4"]
+    assert len(refreshed.output_paths) == 1
+    assert refreshed.output_paths[0].endswith("/output-01.mp4")
+    assert Path(refreshed.output_paths[0]).read_bytes() == b"video-bytes"
     event_types = [event.event_type for event in list_ai_video_task_events(task.id, _admin=admin())]
     assert event_types == ["created", "submitted", "status_checked"]
-
 

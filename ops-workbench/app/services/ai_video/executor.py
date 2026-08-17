@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
+import httpx
+
+from app.config import settings
 from app.services.ai_video.comfyui_client import ComfyUIClient
 from app.services.ai_video.models import GenerationTask
 from app.services.ai_video.provider_adapters import (
@@ -17,6 +22,7 @@ from app.services.ai_video.store import repository
 
 
 WORKFLOW_ROOT = Path(__file__).resolve().parents[3] / "workflows" / "comfyui"
+OutputDownloader = Callable[[str, Path, int], Awaitable[str]]
 
 
 def workflow_path(workflow_name: str) -> Path:
@@ -61,6 +67,40 @@ def build_video_request(task: GenerationTask) -> StandardVideoRequest:
         input_files=input_files,
         metadata={"project_id": task.project_id, "task_id": task.id, "workflow_name": task.workflow_name},
     )
+
+
+def _output_extension(url: str) -> str:
+    suffix = Path(urlparse(url).path).suffix.lower()
+    return suffix if suffix in {".mp4", ".mov", ".webm", ".m4v"} else ".mp4"
+
+
+async def download_remote_output(url: str, target_dir: Path, index: int) -> str:
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / f"output-{index + 1:02d}{_output_extension(url)}"
+    async with httpx.AsyncClient(timeout=120) as client:
+        async with client.stream("GET", url) as response:
+            response.raise_for_status()
+            with target.open("wb") as output:
+                async for chunk in response.aiter_bytes():
+                    if chunk:
+                        output.write(chunk)
+    return str(target)
+
+
+async def localize_output_paths(
+    task: GenerationTask,
+    output_paths: list[str],
+    downloader: OutputDownloader | None = None,
+) -> list[str]:
+    target_dir = settings.runtime_dir / "ai-video" / "outputs" / task.project_id / task.id
+    resolved: list[str] = []
+    fetch = downloader or download_remote_output
+    for index, value in enumerate(output_paths):
+        if value.startswith(("http://", "https://")):
+            resolved.append(await fetch(value, target_dir, index))
+        else:
+            resolved.append(value)
+    return resolved
 
 
 async def submit_generation_task(
@@ -124,6 +164,7 @@ async def submit_generation_task(
 async def refresh_generation_task(
     task_id: str,
     video_adapter: VideoProviderAdapter | None = None,
+    output_downloader: OutputDownloader | None = None,
 ) -> GenerationTask:
     task = repository.get_task(task_id)
     if task.engine != "vendor_video":
@@ -144,14 +185,22 @@ async def refresh_generation_task(
         )
     try:
         result = await (video_adapter or OpenAICompatibleVideoAdapter()).get_status(task.provider_task_id)
+        output_paths = result.output_paths
+        if result.status == "succeeded" and output_paths:
+            output_paths = await localize_output_paths(task, output_paths, output_downloader)
         return repository.update_task_status(
             task_id,
             status=result.status,
-            output_paths=result.output_paths,
+            output_paths=output_paths,
             error=result.error,
             event_type="status_checked",
             message="已同步视频模型 API 任务状态",
-            payload={"provider": result.provider, "response": result.raw_response},
+            payload={
+                "provider": result.provider,
+                "response": result.raw_response,
+                "remote_output_paths": result.output_paths,
+                "output_paths": output_paths,
+            },
         )
     except Exception as exc:
         return repository.update_task_status(
