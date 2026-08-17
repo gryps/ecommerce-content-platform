@@ -1,5 +1,7 @@
-import { CheckCircle2, Clapperboard, ExternalLink, History, LoaderCircle, Play, Plus, Radio, RefreshCw, Trash2, Upload, WandSparkles } from "lucide-react";
+import { CheckCircle2, Clapperboard, ExternalLink, History, LoaderCircle, Play, Plus, Radio, RefreshCw, Upload, WandSparkles } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog";
+import type { DeleteConfirmation } from "../../types";
 import { useAiVideoProductionController } from "./useAiVideoProductionController";
 import type { GenerationTask } from "./types";
 
@@ -101,20 +103,18 @@ function ProjectCreator({ controller }: { controller: Controller }) {
 }
 
 function ProjectPicker({ controller }: { controller: Controller }) {
-  async function removeProject(projectId: string, name: string) {
-    if (!window.confirm(`删除项目“${name}”？项目下的资产、分镜、任务和事件记录也会删除。`)) return;
-    await controller.deleteProject(projectId);
-  }
+  const [confirmation, setConfirmation] = useState<DeleteConfirmation | null>(null);
 
   return <section className="human-card">
     <div className="human-card-title"><h2>当前项目</h2><span>{controller.selectedProject?.id || "尚未创建"}</span></div>
     <div className="ai-project-list">
       {controller.store.projects.map(project => <article key={project.id} className={project.id === controller.selectedProject?.id ? "active" : ""}>
         <button type="button" onClick={() => controller.setSelectedProjectId(project.id)}><b>{project.name}</b><span>{project.product_name || "未填写商品名"}</span></button>
-        <button type="button" className="human-secondary danger" disabled={controller.loading} title="删除项目" onClick={() => removeProject(project.id, project.name)}><Trash2 /></button>
+        <button type="button" className="human-danger compact" disabled={controller.loading} onClick={() => setConfirmation({ title: `删除项目“${project.name}”？`, message: "将删除项目下的资产、分镜、任务和事件记录，无法恢复。", onConfirm: () => controller.deleteProject(project.id) })}>删除</button>
       </article>)}
       {!controller.store.projects.length && <p className="human-note">先创建项目，再登记资产和调度 ComfyUI。</p>}
     </div>
+    <ConfirmDeleteDialog confirmation={confirmation} close={() => setConfirmation(null)} />
   </section>;
 }
 
