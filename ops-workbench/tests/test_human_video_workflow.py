@@ -171,7 +171,7 @@ def test_copy_library_update_and_delete(workbench_database):
 
 def test_copy_iteration_saves_original_reviews_five_and_history_delete_preserves_library(workbench_database, monkeypatch):
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.analyze_and_generate_copies",
+        "app.api.v1.human_workflow_routes.copies.analyze_and_generate_copies",
         lambda **_: {
             "language_analysis": {"language_style": "口语", "word_preference": "简洁", "emotional_tone": "真诚", "appeal_focus": "体验"},
             "audience_analysis": {"age": "25-35", "gender": "不限", "interests": "生活方式", "spending_level": "中等", "psychological_state": "希望省心"},
@@ -194,7 +194,7 @@ def test_copy_iteration_saves_original_reviews_five_and_history_delete_preserves
     for item in created["batches"][0]["copies"][1:]:
         review_generated_copy(item["id"], CopyReviewPayload(status="not_adopted", reason="表达太泛"), admin=admin())
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.continue_copy_iteration",
+        "app.api.v1.human_workflow_routes.copies.continue_copy_iteration",
         lambda **kwargs: [f"继续文案{i}" for i in range(1, 6)]
         if any(item["reason"] == "表达太泛" for item in kwargs["reviewed_feedback"])
         else [],
@@ -235,5 +235,4 @@ def test_model_call_log_redacts_secrets(workbench_database):
     assert page["total"] == 1
     detail = model_call_log_detail("copywriting", page["items"][0]["id"])
     assert "api_key" not in detail["input_payload"]
-
 

@@ -8,7 +8,7 @@ def test_qwen_audio_voice_preview_is_persisted_and_reused(workbench_database, mo
         model="qwen-audio-3.0-tts-plus",
     )
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.load_model_profiles", lambda: [profile]
+        "app.api.v1.human_workflow_routes.voice_narrations.load_model_profiles", lambda: [profile]
     )
     calls = []
     def fake_generate(_text, target, **kwargs):
@@ -19,7 +19,7 @@ def test_qwen_audio_voice_preview_is_persisted_and_reused(workbench_database, mo
         target.write_bytes(b"RIFF-preview")
 
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.generate_narration_audio", fake_generate
+        "app.api.v1.human_workflow_routes.voice_narrations.generate_narration_audio", fake_generate
     )
     response = preview_model_voice(
         VoicePreviewPayload(voice_sequence=1), _admin=admin()
@@ -251,11 +251,11 @@ def test_audio_to_copy_accepts_local_media_without_creating_narration(workbench_
     prepared = workbench_database / "prepared.wav"
     prepared.write_bytes(b"RIFF-audio")
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.prepare_uploaded_audio",
+        "app.api.v1.human_workflow_routes.copies.prepare_uploaded_audio",
         lambda **_kwargs: prepared,
     )
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.recognize_narration_audio",
+        "app.api.v1.human_workflow_routes.copies.recognize_narration_audio",
         lambda *_args, **_kwargs: {"text": "识别后可修改的文案", "model": "asr-test"},
     )
     result = audio_to_copy(
@@ -273,7 +273,7 @@ def test_model_voice_sequence_resolves_catalog_without_asr(workbench_database, m
         stage="speech_synthesis", label="字幕配音", model="qwen-audio-3.0-tts-plus"
     )
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.load_model_profiles", lambda: [profile]
+        "app.api.v1.human_workflow_routes.voice_narrations.load_model_profiles", lambda: [profile]
     )
 
     def fake_generate(text, target, **kwargs):
@@ -284,10 +284,10 @@ def test_model_voice_sequence_resolves_catalog_without_asr(workbench_database, m
         return {"model": profile.model, "voice": kwargs["voice"], "audio_bytes": target.stat().st_size}
 
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.generate_narration_audio", fake_generate
+        "app.api.v1.human_workflow_routes.voice_narrations.generate_narration_audio", fake_generate
     )
     monkeypatch.setattr(
-        "app.api.v1.human_workflow.generated_subtitle_cues",
+        "app.api.v1.human_workflow_routes.voice_narrations.generated_subtitle_cues",
         lambda text, _path: [{"text": text, "start_seconds": 0, "end_seconds": 3}],
     )
     created = create_model_voice_narration(
@@ -367,5 +367,4 @@ def test_model_profile_can_be_saved_independently(workbench_database):
     assert next(item for item in after if item.stage == "copywriting").model == next(item for item in before if item.stage == "copywriting").model
     assert next(item for item in after if item.stage == "speech_synthesis").model == next(item for item in before if item.stage == "speech_synthesis").model
     assert next(item for item in after if item.stage == "speech_recognition").api_key == "sk-independent"
-
 
