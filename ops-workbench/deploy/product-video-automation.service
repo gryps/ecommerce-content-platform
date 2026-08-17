@@ -1,0 +1,18 @@
+[Unit]
+Description=Ecommerce Ops Platform FastAPI service
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@OPS_WORKBENCH_DIR@
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+EnvironmentFile=-@RUNTIME_DIR@/.env
+ExecStart=@VENV_DIR@/bin/python -m uvicorn app.main:app --host @HOST@ --port @PORT@
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGINT
+
+[Install]
+WantedBy=default.target
