@@ -214,6 +214,7 @@ NO_PROXY 包含 localhost、127.0.0.1、192.168.31.24
 
 - 小主机源码已纳入 Git 管理。
 - 前端入口已拆出壳层：`frontend/src/components/shell/` 存放导航配置、侧边栏、顶部栏和账号弹窗；`frontend/src/styles/` 存放壳层和登录样式；`HumanApp.tsx` 只保留登录态、基础数据刷新、模块状态和页面分发。
+- 全局 API 入口已收口：`app/api/v1/router.py` 只负责挂载子路由；认证、产品库、音乐资源和模型配置分别拆到 `auth.py`、`products.py`、`music_resources.py`、`model_profiles.py`，外部 URL 保持 `/api/v1/...` 不变。
 - AI 宣传片已新增厂商视频 API adapter 边界：`app/services/ai_video/provider_adapters.py` 定义标准请求、提交结果、状态结果和 OpenAI 兼容视频调用；`executor.py` 可按 `comfyui` / `vendor_video` 分派。
 - 模型配置新增 `ai_video_generation`（AI 视频生成）业务卡；API Key 仍保存在平台模型配置，不写入 workflow JSON。
 - 新增 `/api/v1/ai-video/generation/tasks/{task_id}/refresh`，用于按厂商任务 ID 同步状态和输出路径。
@@ -247,6 +248,7 @@ comfyui：active
 2. 增加 AI 视频任务轮询和结果回收。
 3. 把 ComfyUI workflow 注册表做成数据库或配置文件，不靠临时文件名约定。
 4. 用真实文生视频或图生视频跑通一次出片验收，记录输入、输出、厂商任务 ID、错误和耗时。
+5. 继续拆分视频生产旧大文件：优先处理 `app/api/v1/human_workflow.py`、`app/services/jianying_drafts.py`、`app/services/music_resources.py` 和 `frontend/src/HumanApp.tsx`。
 
 ## 9. 仍未完成的平台模块
 

@@ -59,7 +59,8 @@ from app.api.v1.ai_video_production import (
 )
 from app.api.v1.operations import add_operations_product, edit_operations_product, get_operations_overview
 from app.api.v1.operations.schemas import OpsProductPayload
-from app.api.v1.router import add_product, list_products, update_workbench_model_profile
+from app.api.v1.model_profiles import update_workbench_model_profile
+from app.api.v1.products import add_product, list_products
 from app.api.v1.schemas import ProductCreateRequest
 from app.config import settings
 from app.core.database import init_workbench_schema, reset_engine_for_tests, session_scope
