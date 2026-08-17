@@ -1,11 +1,13 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
-import type { Asset, GenerationTask, ProductProject, Shot, WorkbenchStore } from "./types";
+import type { Asset, GenerationTask, ProductProject, Shot, TaskEvent, WorkbenchStore, WorkflowTemplate } from "./types";
 
 const emptyStore: WorkbenchStore = { projects: [], assets: [], shots: [], tasks: [] };
 
 export function useAiVideoProductionController() {
   const [store, setStore] = useState<WorkbenchStore>(emptyStore);
+  const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([]);
+  const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent[]>>({});
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("空闲");
@@ -26,9 +28,19 @@ export function useAiVideoProductionController() {
     }
   }, []);
 
+  const loadWorkflows = useCallback(async () => {
+    try {
+      const next = await api<WorkflowTemplate[]>("/ai-video/workflows");
+      setWorkflows(next);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "工作流注册表加载失败");
+    }
+  }, []);
+
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    loadWorkflows();
+  }, [refresh, loadWorkflows]);
 
   const selectedProject = useMemo(
     () => store.projects.find(project => project.id === selectedProjectId) || store.projects[0] || null,
@@ -173,18 +185,31 @@ export function useAiVideoProductionController() {
     }
   }
 
-  async function refreshTask(taskId: string) {
-    setError("");
-    setLoading(true);
+  async function refreshTask(taskId: string, options: { silent?: boolean } = {}) {
+    if (!options.silent) {
+      setError("");
+      setLoading(true);
+    }
     try {
       const task = await api<GenerationTask>(`/ai-video/generation/tasks/${taskId}/refresh`, { method: "POST" });
-      setMessage(task.status === "failed" ? `任务刷新失败：${task.error}` : "任务状态已刷新");
+      if (!options.silent) setMessage(task.status === "failed" ? `任务刷新失败：${task.error}` : "任务状态已刷新");
       await refresh();
       return task;
     } catch (reason) {
-      actionError(reason, "生成任务刷新失败");
+      if (!options.silent) actionError(reason, "生成任务刷新失败");
     } finally {
-      setLoading(false);
+      if (!options.silent) setLoading(false);
+    }
+  }
+
+  async function loadTaskEvents(taskId: string) {
+    setError("");
+    try {
+      const events = await api<TaskEvent[]>(`/ai-video/generation/tasks/${taskId}/events`);
+      setTaskEvents(current => ({ ...current, [taskId]: events }));
+      return events;
+    } catch (reason) {
+      actionError(reason, "任务事件加载失败");
     }
   }
 
@@ -205,6 +230,8 @@ export function useAiVideoProductionController() {
 
   return {
     store,
+    workflows,
+    taskEvents,
     selectedProject,
     selectedProjectId,
     selectedAssets,
@@ -221,6 +248,7 @@ export function useAiVideoProductionController() {
     createTask,
     submitTask,
     refreshTask,
+    loadTaskEvents,
     checkComfyUI,
     refresh,
   };

@@ -588,12 +588,20 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgb(88 122 63 / 1
 .ai-asset-grid span, .ai-task-list span { color: #587a3f; font-size: 10px; font-weight: 800; }
 .ai-asset-grid p, .ai-task-list p { margin: 0; color: #748078; font-size: 11px; line-height: 1.6; }
 .ai-task-dispatcher { display: grid; grid-template-columns: 190px 190px minmax(0, 1fr) auto; gap: 12px; align-items: end; }
-.ai-task-dispatcher .human-card-title, .ai-task-dispatcher .wide { grid-column: 1 / -1; }
+.ai-task-dispatcher .human-card-title, .ai-task-dispatcher .wide, .ai-workflow-template-note { grid-column: 1 / -1; }
 .ai-task-dispatcher textarea { min-height: 88px; }
+.ai-workflow-template-note { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; align-items: center; padding: 10px 12px; border: 1px solid #dfe6dc; background: #fbfcfa; }
+.ai-workflow-template-note b { display: inline-flex; align-items: center; justify-content: center; min-height: 24px; padding: 0 8px; background: #26332b; color: white; font-size: 10px; }
+.ai-workflow-template-note span { color: #536057; font-size: 12px; line-height: 1.55; }
+.ai-workflow-template-note small { grid-column: 2; color: #9a4a42; font-size: 11px; line-height: 1.55; }
 .ai-inline-check { display: flex; align-items: center; min-height: 36px; gap: 8px; color: #536057; font-size: 12px; font-weight: 750; }
 .ai-inline-check input { width: 15px; height: 15px; }
 .ai-task-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .human-shell .ai-task-actions button { min-height: 30px; padding: 0 10px; font-size: 11px; }
+.ai-task-events { display: grid; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid #e0e5de; }
+.ai-task-events p { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 8px; margin: 0; color: #66726b; font-size: 11px; line-height: 1.55; }
+.ai-task-events b { color: #2f3b34; font-size: 11px; }
+.ai-task-events span { overflow: hidden; color: #66726b; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .ai-handoff-card { position: sticky; top: 16px; display: grid; gap: 10px; }
 .ai-handoff-card article { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 10px; border: 1px solid #e0e5de; background: #fbfcfa; }
 .ai-handoff-card article.ready { border-color: #c9dfbe; background: #f0f7ec; }

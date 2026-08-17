@@ -9,8 +9,9 @@ from app.domain.models import AdminUser
 from app.services.ai_video.comfyui_client import ComfyUIClient
 from app.services.ai_video.director import draft_shots
 from app.services.ai_video.executor import refresh_generation_task, submit_generation_task
-from app.services.ai_video.models import Asset, GenerationTask, ProductProject, Shot, TaskEvent, WorkbenchStore
+from app.services.ai_video.models import Asset, GenerationTask, ProductProject, Shot, TaskEvent, WorkbenchStore, WorkflowTemplate
 from app.services.ai_video.store import repository
+from app.services.ai_video.workflow_registry import list_workflow_templates
 from app.services.auth import require_admin
 
 
@@ -20,6 +21,11 @@ router = APIRouter(prefix="/ai-video", tags=["ai-video-production"])
 @router.get("/workbench", response_model=WorkbenchStore)
 def get_workbench(_admin: AdminUser = Depends(require_admin)) -> WorkbenchStore:
     return repository.load()
+
+
+@router.get("/workflows", response_model=list[WorkflowTemplate])
+def list_workflows(_admin: AdminUser = Depends(require_admin)) -> list[WorkflowTemplate]:
+    return list_workflow_templates(Path("workflows/comfyui"))
 
 
 @router.post("/projects", response_model=ProductProject, status_code=status.HTTP_201_CREATED)

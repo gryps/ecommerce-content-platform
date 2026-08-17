@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 AssetKind = Literal["product", "character", "environment", "prop", "keyframe", "reference"]
 TaskEngine = Literal["comfyui", "vendor_video"]
 TaskStatus = Literal["draft", "queued", "running", "succeeded", "failed", "cancelled"]
+WorkflowMode = Literal["t2v", "i2v", "first_last_frame", "workflow"]
 
 
 def new_id() -> str:
@@ -81,6 +82,17 @@ class TaskEvent(BaseModel):
     message: str = ""
     payload: dict = Field(default_factory=dict)
     created_at: str = Field(default_factory=now_iso)
+
+
+class WorkflowTemplate(BaseModel):
+    name: str
+    label: str
+    description: str = ""
+    default_engine: TaskEngine
+    mode: WorkflowMode
+    required_asset_kinds: list[AssetKind] = Field(default_factory=list)
+    available: bool = True
+    availability_note: str = ""
 
 
 class WorkbenchStore(BaseModel):

@@ -1,4 +1,4 @@
-import { CheckCircle2, Clapperboard, ExternalLink, LoaderCircle, Play, Plus, Radio, RefreshCw, Upload, WandSparkles } from "lucide-react";
+import { CheckCircle2, Clapperboard, ExternalLink, History, LoaderCircle, Play, Plus, Radio, RefreshCw, Upload, WandSparkles } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useAiVideoProductionController } from "./useAiVideoProductionController";
 import type { GenerationTask } from "./types";
@@ -10,13 +10,6 @@ const assetKinds = [
   ["prop", "道具图"],
   ["keyframe", "关键帧"],
   ["reference", "风格参考"],
-];
-
-const workflowOptions = [
-  ["text_to_video", "文生视频"],
-  ["image_to_video", "图生视频"],
-  ["first_last_frame_video", "首尾帧视频"],
-  ["comfyui_business_workflow", "ComfyUI工作流"],
 ];
 
 type Controller = ReturnType<typeof useAiVideoProductionController>;
@@ -31,6 +24,19 @@ export function AiVideoProduction({ onError, onNotice }: { onError: (value: stri
   useEffect(() => {
     if (!controller.error && controller.message && controller.message !== "空闲") onNotice(controller.message);
   }, [controller.error, controller.message, onNotice]);
+
+  const pollingTasks = useMemo(
+    () => controller.selectedTasks.filter(task => task.status === "running" && task.provider_task_id).map(task => task.id).join("|"),
+    [controller.selectedTasks],
+  );
+
+  useEffect(() => {
+    if (!pollingTasks) return;
+    const timer = window.setInterval(() => {
+      pollingTasks.split("|").filter(Boolean).forEach(taskId => controller.refreshTask(taskId, { silent: true }));
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [pollingTasks]);
 
   return <section className="human-page ai-video-page">
     <ComfyUiBridge controller={controller} />
@@ -158,11 +164,24 @@ function DirectorAndShots({ controller }: { controller: Controller }) {
 }
 
 function TaskDispatcher({ controller }: { controller: Controller }) {
-  const [workflowName, setWorkflowName] = useState("text_to_video");
+  const firstWorkflow = controller.workflows[0];
+  const [workflowName, setWorkflowName] = useState(firstWorkflow?.name || "text_to_video");
   const [engine, setEngine] = useState("vendor_video");
   const [prompt, setPrompt] = useState("");
   const [submitAfterCreate, setSubmitAfterCreate] = useState(true);
   const firstShotPrompt = controller.selectedShots[0]?.prompt || "";
+  const selectedWorkflow = controller.workflows.find(item => item.name === workflowName);
+
+  useEffect(() => {
+    if (firstWorkflow && !controller.workflows.some(item => item.name === workflowName)) {
+      setWorkflowName(firstWorkflow.name);
+      setEngine(firstWorkflow.default_engine);
+    }
+  }, [controller.workflows, firstWorkflow, workflowName]);
+
+  useEffect(() => {
+    if (selectedWorkflow) setEngine(selectedWorkflow.default_engine);
+  }, [selectedWorkflow?.name]);
 
   useEffect(() => {
     if (!prompt && firstShotPrompt) setPrompt(firstShotPrompt);
@@ -176,8 +195,9 @@ function TaskDispatcher({ controller }: { controller: Controller }) {
 
   return <form className="human-card ai-task-dispatcher" onSubmit={submit}>
     <div className="human-card-title"><h2>任务调度</h2><span>记录平台任务，并提交到 ComfyUI 或厂商视频 API</span></div>
-    <label>工作流<select value={workflowName} onChange={event => setWorkflowName(event.target.value)}>{workflowOptions.map(item => <option key={item[0]} value={item[0]}>{item[1]}</option>)}</select></label>
+    <label>工作流<select value={workflowName} onChange={event => setWorkflowName(event.target.value)}>{controller.workflows.map(item => <option key={item.name} value={item.name}>{item.label}</option>)}</select></label>
     <label>执行引擎<select value={engine} onChange={event => setEngine(event.target.value)}><option value="vendor_video">厂商视频API</option><option value="comfyui">ComfyUI</option></select></label>
+    {selectedWorkflow && <div className="ai-workflow-template-note"><b>{selectedWorkflow.mode}</b><span>{selectedWorkflow.description}</span>{selectedWorkflow.availability_note && <small>{selectedWorkflow.availability_note}</small>}</div>}
     <label className="wide">提示词<textarea required value={prompt} onChange={event => setPrompt(event.target.value)} /></label>
     <label className="ai-inline-check"><input type="checkbox" checked={submitAfterCreate} onChange={event => setSubmitAfterCreate(event.target.checked)} />创建后立即提交</label>
     <button type="submit" disabled={controller.loading || !controller.selectedProject || !prompt.trim()}><Clapperboard />创建任务</button>
@@ -195,8 +215,16 @@ function TaskList({ controller }: { controller: Controller }) {
 }
 
 function TaskCard({ task, controller }: { task: GenerationTask; controller: Controller }) {
+  const [eventsOpen, setEventsOpen] = useState(false);
   const canSubmit = task.status === "queued" || task.status === "failed";
-  const canRefresh = Boolean(task.provider_task_id) || task.status === "running" || task.status === "submitted";
+  const canRefresh = Boolean(task.provider_task_id) || task.status === "running" || task.status === "queued";
+  const events = controller.taskEvents[task.id] || [];
+
+  async function toggleEvents() {
+    const nextOpen = !eventsOpen;
+    setEventsOpen(nextOpen);
+    if (nextOpen) await controller.loadTaskEvents(task.id);
+  }
 
   return <article>
     <b>{task.workflow_name}</b>
@@ -206,7 +234,12 @@ function TaskCard({ task, controller }: { task: GenerationTask; controller: Cont
     <div className="ai-task-actions">
       <button type="button" disabled={controller.loading || !canSubmit} onClick={() => controller.submitTask(task.id)}><Play />提交</button>
       <button type="button" disabled={controller.loading || !canRefresh} onClick={() => controller.refreshTask(task.id)}><RefreshCw />刷新</button>
+      <button type="button" disabled={controller.loading} onClick={toggleEvents}><History />事件</button>
     </div>
+    {eventsOpen && <div className="ai-task-events">
+      {events.map(event => <p key={event.id}><b>{event.event_type}</b><span>{event.message || event.created_at}</span></p>)}
+      {!events.length && <p><span>暂无事件记录</span></p>}
+    </div>}
   </article>;
 }
 

@@ -46,6 +46,26 @@ export interface GenerationTask {
   error: string;
 }
 
+export interface TaskEvent {
+  id: string;
+  task_id: string;
+  event_type: string;
+  message: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface WorkflowTemplate {
+  name: string;
+  label: string;
+  description: string;
+  default_engine: "comfyui" | "vendor_video";
+  mode: "t2v" | "i2v" | "first_last_frame" | "workflow";
+  required_asset_kinds: AssetKind[];
+  available: boolean;
+  availability_note: string;
+}
+
 export interface WorkbenchStore {
   projects: ProductProject[];
   assets: Asset[];

@@ -1,4 +1,20 @@
 from tests.current_workflow_helpers import *
+from app.services.ai_video.workflow_registry import list_workflow_templates
+
+
+def test_ai_video_workflow_registry_marks_comfyui_placeholder(tmp_path):
+    workflows_dir = tmp_path / "workflows"
+    workflows_dir.mkdir()
+    (workflows_dir / "comfyui_business_workflow.example.json").write_text("{}", encoding="utf-8")
+
+    templates = list_workflow_templates(workflows_dir)
+    by_name = {template.name: template for template in templates}
+
+    assert by_name["text_to_video"].default_engine == "vendor_video"
+    assert by_name["image_to_video"].required_asset_kinds == ["product"]
+    assert by_name["comfyui_business_workflow"].default_engine == "comfyui"
+    assert by_name["comfyui_business_workflow"].available is False
+    assert "example" in by_name["comfyui_business_workflow"].availability_note
 
 
 def test_ai_video_project_asset_shot_and_task_flow(workbench_database, monkeypatch):
@@ -124,4 +140,3 @@ def test_ai_video_vendor_adapter_submit_and_refresh(workbench_database, monkeypa
     assert Path(refreshed.output_paths[0]).read_bytes() == b"video-bytes"
     event_types = [event.event_type for event in list_ai_video_task_events(task.id, _admin=admin())]
     assert event_types == ["created", "submitted", "status_checked"]
-
