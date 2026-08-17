@@ -214,6 +214,10 @@ NO_PROXY 包含 localhost、127.0.0.1、192.168.31.24
 
 - 小主机源码已纳入 Git 管理。
 - 前端入口已拆出壳层：`frontend/src/components/shell/` 存放导航配置、侧边栏、顶部栏和账号弹窗；`frontend/src/styles/` 存放壳层和登录样式；`HumanApp.tsx` 只保留登录态、基础数据刷新、模块状态和页面分发。
+- AI 宣传片已新增厂商视频 API adapter 边界：`app/services/ai_video/provider_adapters.py` 定义标准请求、提交结果、状态结果和 OpenAI 兼容视频调用；`executor.py` 可按 `comfyui` / `vendor_video` 分派。
+- 模型配置新增 `ai_video_generation`（AI 视频生成）业务卡；API Key 仍保存在平台模型配置，不写入 workflow JSON。
+- 新增 `/api/v1/ai-video/generation/tasks/{task_id}/refresh`，用于按厂商任务 ID 同步状态和输出路径。
+- AI 宣传片画布中的“生成视频片段”会创建 `vendor_video` 任务并提交；任务清单展示厂商任务 ID、错误和输出路径。
 - `deploy/product-video-automation.service` 改成模板，不再写死 WSL 路径。
 - `scripts/install_systemd_service.sh` 可按当前目录生成用户级 systemd service。
 - `scripts/verify_deploy.sh` 可检查平台服务、ComfyUI、数据库版本、静态资源和健康接口。
@@ -223,23 +227,26 @@ NO_PROXY 包含 localhost、127.0.0.1、192.168.31.24
 当前最近验证：
 
 ```text
+../.venv/bin/python -m pytest tests/test_current_workflow.py -q：37 passed
 npm --prefix frontend run build：通过
 scripts/verify_deploy.sh：通过
 product-video-automation：active
 comfyui：active
 ```
 
-注意：前端壳层拆分本轮只做了构建和部署自检，没有引入浏览器自动化点击测试；项目当前没有 Playwright/E2E 脚本。
+注意：
+
+- 前端交互本轮只做了构建和部署自检，没有引入浏览器自动化点击测试；项目当前没有 Playwright/E2E 脚本。
+- 当前没有配置真实视频厂商 API Key，因此本轮只完成 adapter mock 测试、任务事件落库和前端构建；尚未完成真实文生视频或图生视频出片验收。
 - AI 宣传片新增数据库表：项目、资产、分镜、生成任务、任务事件。
 - AI 宣传片新增任务提交边界：占位 workflow 会明确失败并写入事件；真实 ComfyUI API workflow 可沿同一入口提交。
 
 仍建议后续继续处理：
 
-1. 拆 `frontend/src/HumanApp.tsx`：导航、用户资料、模块注册、状态栏分离。
-2. 拆 `frontend/src/human.css`：Shell、导航、图片生产、AI 宣传片等样式分文件。
-3. 建立真实模型 API adapter：不把 API Key 写入 workflow JSON。
-4. 增加 AI 视频任务轮询和结果回收。
-5. 把 ComfyUI workflow 注册表做成数据库或配置文件，不靠临时文件名约定。
+1. 选择并配置真实视频厂商 API，校准提交 payload、状态字段和输出 URL 字段。
+2. 增加 AI 视频任务轮询和结果回收。
+3. 把 ComfyUI workflow 注册表做成数据库或配置文件，不靠临时文件名约定。
+4. 用真实文生视频或图生视频跑通一次出片验收，记录输入、输出、厂商任务 ID、错误和耗时。
 
 ## 9. 仍未完成的平台模块
 

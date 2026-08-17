@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from app.domain.models import AdminUser
 from app.services.ai_video.comfyui_client import ComfyUIClient
 from app.services.ai_video.director import draft_shots
-from app.services.ai_video.executor import submit_generation_task
+from app.services.ai_video.executor import refresh_generation_task, submit_generation_task
 from app.services.ai_video.models import Asset, GenerationTask, ProductProject, Shot, TaskEvent, WorkbenchStore
 from app.services.ai_video.store import repository
 from app.services.auth import require_admin
@@ -83,6 +83,14 @@ def create_generation_task(payload: GenerationTask, _admin: AdminUser = Depends(
 async def submit_task(task_id: str, _admin: AdminUser = Depends(require_admin)) -> GenerationTask:
     try:
         return await submit_generation_task(task_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post("/generation/tasks/{task_id}/refresh", response_model=GenerationTask)
+async def refresh_task(task_id: str, _admin: AdminUser = Depends(require_admin)) -> GenerationTask:
+    try:
+        return await refresh_generation_task(task_id)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

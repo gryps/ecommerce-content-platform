@@ -20,6 +20,7 @@ PROFILE_STAGES = (
     ("copywriting", "文案生成"),
     ("image_analysis", "原图分析与提示词"),
     ("image_generation", "AI 商品生图"),
+    ("ai_video_generation", "AI 视频生成"),
     ("speech_recognition", "音频转文案"),
     ("speech_synthesis", "字幕配音"),
 )

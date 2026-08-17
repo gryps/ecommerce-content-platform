@@ -66,7 +66,7 @@ function WorkflowCanvas({ controller, compact = false }: { controller: Controlle
   const shotsReady = controller.selectedShots.length > 0;
   const keyframeTasks = controller.selectedTasks.filter(task => task.workflow_name.includes("keyframe"));
   const videoTasks = controller.selectedTasks.filter(task => task.workflow_name.includes("video"));
-  const reviewReady = controller.selectedTasks.some(task => task.status === "succeeded" || task.output_asset_ids.length > 0);
+  const reviewReady = controller.selectedTasks.some(task => task.status === "succeeded" || task.output_paths.length > 0);
   const nextStep = !projectReady ? "先新建宣传片项目，补齐商品名、卖点和目标人群。" : !assetsReady ? "上传商品图、人物三视图、环境图和风格参考。" : !shotsReady ? "进入导演页生成分镜，把业务目标转成镜头脚本。" : !keyframeTasks.length ? "在分镜列表里发起关键帧任务。" : !videoTasks.length ? "关键帧通过后创建图生视频或片段合成任务。" : "进入任务页审核版本，再汇总到导出页。";
   const nodes = useMemo(() => [
     { key: "project", title: "总览标签", stage: "项目字段", meta: controller.selectedProject?.name || "未选择项目", Icon: LayoutDashboard, state: projectReady ? "ready" : "empty", detail: "填写项目名、商品名、卖点、人群和视觉调性，创建后成为整条链路上下文。", output: "总览 / 项目", rows: [["项目ID", controller.selectedProject?.id || "empty"], ["商品名", controller.selectedProject?.product_name || "未填写"], ["视觉调性", controller.selectedProject?.tone || "默认投放质感"]] },
@@ -109,7 +109,8 @@ function WorkflowCanvas({ controller, compact = false }: { controller: Controlle
 
   async function createCanvasTask(workflowName: string, prompt: string) {
     if (!prompt.trim()) return;
-    await controller.createTask(workflowName, prompt);
+    const isVideo = workflowName.includes("video");
+    await controller.createTask(workflowName, prompt, isVideo ? "vendor_video" : "comfyui", isVideo);
   }
 
   function stopCanvasInput(event: { stopPropagation: () => void }) {
@@ -338,7 +339,7 @@ function Shots({ controller }: { controller: Controller }) {
 }
 
 function Review({ controller }: { controller: Controller }) {
-  return <section className="human-card"><div className="human-card-title"><h2>任务与版本</h2><span>后续接入轮询、预览和重生成</span></div><div className="ai-task-list">{controller.selectedTasks.map(task => <article key={task.id}><b>{task.workflow_name}</b><span>{task.engine} · {task.status}</span><p>{task.prompt}</p></article>)}{!controller.selectedTasks.length && <p className="human-note">暂无生成任务。</p>}</div></section>;
+  return <section className="human-card"><div className="human-card-title"><h2>任务与版本</h2><span>记录厂商任务 ID、错误和输出路径</span></div><div className="ai-task-list">{controller.selectedTasks.map(task => <article key={task.id}><b>{task.workflow_name}</b><span>{task.engine} · {task.status}{task.provider_task_id ? ` · ${task.provider_task_id}` : ""}</span><p>{task.error || task.prompt}</p>{task.output_paths.map(path => <small key={path}>{path}</small>)}</article>)}{!controller.selectedTasks.length && <p className="human-note">暂无生成任务。</p>}</div></section>;
 }
 
 function Export({ controller }: { controller: Controller }) {

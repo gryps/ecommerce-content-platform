@@ -127,7 +127,7 @@ export function useAiVideoProductionController() {
     }
   }
 
-  async function createTask(workflowName: string, prompt: string) {
+  async function createTask(workflowName: string, prompt: string, engine = "comfyui", submitAfterCreate = false) {
     if (!selectedProject) return;
     setError("");
     setLoading(true);
@@ -136,12 +136,18 @@ export function useAiVideoProductionController() {
         method: "POST",
         body: JSON.stringify({
           project_id: selectedProject.id,
-          engine: "comfyui",
+          engine,
           workflow_name: workflowName,
           prompt,
           input_asset_ids: selectedAssets.map(asset => asset.id),
         }),
       });
+      if (submitAfterCreate) {
+        const submitted = await api<GenerationTask>(`/ai-video/generation/tasks/${task.id}/submit`, { method: "POST" });
+        setMessage(submitted.status === "failed" ? `任务提交失败：${submitted.error}` : "生成任务已提交");
+        await refresh();
+        return submitted;
+      }
       setMessage("生成任务已入队");
       await refresh();
       return task;

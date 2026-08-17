@@ -82,6 +82,7 @@ from app.domain.models import (
 from app.main import app
 from app.models import ModelProfile
 from app.services.ai_video.models import GenerationTask, ProductProject
+from app.services.ai_video.provider_adapters import StandardSubmitResult, StandardTaskStatus
 from app.services.ai_video.store import repository as ai_video_repository
 from app.services.auth import (
     bootstrap_admin,
@@ -196,6 +197,64 @@ def test_ai_video_project_asset_shot_and_task_flow(workbench_database, monkeypat
     assert "占位文件" in submitted.error
     event_types = [event.event_type for event in list_ai_video_task_events(task.id, _admin=admin())]
     assert event_types == ["created", "submit_failed"]
+
+
+def test_ai_video_vendor_adapter_submit_and_refresh(workbench_database, monkeypatch):
+    monkeypatch.setattr(ai_video_repository, "path", workbench_database / "ai-video" / "databases" / "workbench.json")
+    project = create_ai_video_project(
+        ProductProject(name="图生视频测试", product_name="珍珠流苏发簪"),
+        _admin=admin(),
+    )
+    asset = upload_ai_video_asset(
+        project_id=project.id,
+        kind="product",
+        name="首帧图",
+        notes="",
+        file=UploadFile(filename="start.png", file=io.BytesIO(b"png-bytes")),
+        _admin=admin(),
+    )
+
+    class FakeVideoAdapter:
+        async def submit(self, request):
+            assert request.mode == "i2v"
+            assert request.input_files[0].path == asset.file_path
+            return StandardSubmitResult(
+                provider="fake_video",
+                provider_task_id="remote-001",
+                status="running",
+                raw_response={"id": "remote-001", "status": "running"},
+            )
+
+        async def get_status(self, provider_task_id):
+            assert provider_task_id == "remote-001"
+            return StandardTaskStatus(
+                provider="fake_video",
+                provider_task_id=provider_task_id,
+                status="succeeded",
+                output_paths=["https://example.test/output.mp4"],
+                raw_response={"status": "succeeded"},
+            )
+
+    from app.services.ai_video.executor import refresh_generation_task, submit_generation_task
+
+    task = create_generation_task(
+        GenerationTask(
+            project_id=project.id,
+            engine="vendor_video",
+            workflow_name="image_to_video",
+            prompt="商品轻微旋转，镜头慢推",
+            input_asset_ids=[asset.id],
+        ),
+        _admin=admin(),
+    )
+    submitted = awaitable(submit_generation_task(task.id, video_adapter=FakeVideoAdapter()))
+    assert submitted.status == "running"
+    assert submitted.provider_task_id == "remote-001"
+    refreshed = awaitable(refresh_generation_task(task.id, video_adapter=FakeVideoAdapter()))
+    assert refreshed.status == "succeeded"
+    assert refreshed.output_paths == ["https://example.test/output.mp4"]
+    event_types = [event.event_type for event in list_ai_video_task_events(task.id, _admin=admin())]
+    assert event_types == ["created", "submitted", "status_checked"]
 
 
 def test_openapi_exposes_only_current_workflow():
@@ -604,6 +663,7 @@ def test_model_profiles_only_contain_current_bailian_stages(workbench_database):
         "copywriting",
         "image_analysis",
         "image_generation",
+        "ai_video_generation",
         "speech_recognition",
         "speech_synthesis",
     ]

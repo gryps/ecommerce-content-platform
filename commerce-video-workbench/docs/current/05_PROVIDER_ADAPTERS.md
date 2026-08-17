@@ -77,6 +77,34 @@ class VideoProviderAdapter:
         ...
 ```
 
+## 当前实现状态
+
+平台后端已经建立最小 adapter 边界：
+
+```text
+实现文件：ops-workbench/app/services/ai_video/provider_adapters.py
+提交入口：POST /api/v1/ai-video/generation/tasks/{task_id}/submit
+状态入口：POST /api/v1/ai-video/generation/tasks/{task_id}/refresh
+任务引擎：vendor_video
+模型配置 stage：ai_video_generation
+```
+
+当前 `OpenAICompatibleVideoAdapter` 使用平台模型配置中的接口地址、模型、代理和 API Key。默认提交地址按以下规则拼接：
+
+```text
+base_url 以 /video/generations 结尾：直接使用该地址
+base_url 以 /v1 结尾：追加 /video/generations
+其他 base_url：追加 /v1/video/generations
+```
+
+状态查询默认为同一地址追加 `{provider_task_id}`。
+
+注意：
+
+- API Key 只保存在平台模型配置，不写入 workflow JSON。
+- 当前已完成 mock adapter 测试，尚未配置真实厂商 API Key 跑通出片。
+- 第一次接真实厂商时，优先校准提交 payload、状态字段和输出 URL 字段，不扩大前端页面。
+
 ## 厂商配置
 
 ```json
@@ -159,4 +187,3 @@ unknown_error
 - 标准错误码。
 - 是否扣费。
 - 是否可重试。
-
