@@ -1,166 +1,49 @@
 import { LoaderCircle } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, clearToken, storedToken } from "./api";
 import { Auth } from "./components/Auth";
 import { AccountDialog } from "./components/shell/AccountDialog";
 import { AppHeader } from "./components/shell/AppHeader";
 import { SidebarNav } from "./components/shell/SidebarNav";
+import { useAccountDialogState } from "./components/shell/useAccountDialogState";
 import { useNavigationState } from "./components/shell/useNavigationState";
+import { useWorkbenchData } from "./components/shell/useWorkbenchData";
 import { AiVideoProduction } from "./modules/ai-video-production/AiVideoProduction";
 import { ImageProduction } from "./modules/image-production/ImageProduction";
 import { BusinessModelSettings } from "./modules/model-config/BusinessModelSettings";
 import { OperationsCenter } from "./modules/operations/OperationsCenter";
 import { RoleCenter } from "./modules/role-centers/RoleCenter";
 import { CopyLibrary, DraftProduction, Flow, Materials, MusicLibrary } from "./modules/video-production/VideoProduction";
-import type {
-  ClassifiedMaterial,
-  CopyItem,
-  JianyingDraft,
-  MusicResource,
-  Narration,
-  Product,
-  User,
-} from "./types";
 
 export default function HumanApp() {
   const [initialized, setInitialized] = useState<boolean | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [materials, setMaterials] = useState<ClassifiedMaterial[]>([]);
-  const [copies, setCopies] = useState<CopyItem[]>([]);
-  const [narrations, setNarrations] = useState<Narration[]>([]);
-  const [music, setMusic] = useState<MusicResource[]>([]);
-  const [drafts, setDrafts] = useState<JianyingDraft[]>([]);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [loading, setLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("human_sidebar_collapsed") === "1");
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [profileName, setProfileName] = useState("");
-  const [profilePhone, setProfilePhone] = useState("");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [accountBusy, setAccountBusy] = useState(false);
-  const [passwordBusy, setPasswordBusy] = useState(false);
-  const [accountMessage, setAccountMessage] = useState("");
-  const [accountError, setAccountError] = useState("");
   const navigation = useNavigationState();
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [me, productRows, materialRows, copyRows, narrationRows, musicRows, draftRows] = await Promise.all([
-        api<User>("/auth/me"),
-        api<Product[]>("/products"),
-        api<ClassifiedMaterial[]>("/human/classified-materials"),
-        api<{ items: CopyItem[] }>("/human/copies/library?limit=200"),
-        api<Narration[]>("/human/narrations"),
-        api<MusicResource[]>("/music-resources"),
-        api<JianyingDraft[]>("/human/jianying-drafts"),
-      ]);
-      setUser(me);
-      setProducts(productRows);
-      setMaterials(materialRows);
-      setCopies(copyRows.items);
-      setNarrations(narrationRows);
-      setMusic(musicRows);
-      setDrafts(draftRows);
-    } catch (reason) {
-      if (!storedToken()) setUser(null);
-      else setError(reason instanceof Error ? reason.message : "加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const workbench = useWorkbenchData();
+  const account = useAccountDialogState({
+    user: workbench.user,
+    setUser: workbench.setUser,
+    setError: workbench.setError,
+    setNotice: workbench.setNotice,
+  });
 
   useEffect(() => {
     api<{ initialized: boolean }>("/auth/status", {}, false).then(value => {
       setInitialized(value.initialized);
-      if (value.initialized && storedToken()) refresh();
+      if (value.initialized && storedToken()) workbench.refresh();
     }).catch(() => setInitialized(false));
-  }, [refresh]);
-
-  useEffect(() => {
-    if (!user) return;
-    setProfileName(user.display_name || user.username);
-    setProfilePhone(user.phone || "");
-  }, [user]);
+  }, [workbench.refresh]);
 
   useEffect(() => {
     localStorage.setItem("human_sidebar_collapsed", sidebarCollapsed ? "1" : "0");
   }, [sidebarCollapsed]);
 
-  const act = async (work: () => Promise<unknown>, success: string) => {
-    setError("");
-    setNotice("");
-    try {
-      await work();
-      setNotice(success);
-      await refresh();
-      return true;
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "操作失败");
-      return false;
-    }
-  };
-
-  async function saveAccountProfile(event: FormEvent) {
-    event.preventDefault();
-    setAccountBusy(true);
-    setAccountError("");
-    setAccountMessage("");
-    setError("");
-    setNotice("");
-    try {
-      const updated = await api<User>("/auth/me", { method: "PATCH", body: JSON.stringify({ display_name: profileName, phone: profilePhone }) });
-      setUser(updated);
-      setAccountMessage("用户信息已更新");
-      setNotice("用户信息已更新");
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : "用户信息保存失败";
-      setAccountError(message);
-      setError(message);
-    } finally {
-      setAccountBusy(false);
-    }
-  }
-
-  async function savePassword(event: FormEvent) {
-    event.preventDefault();
-    setPasswordBusy(true);
-    setAccountError("");
-    setAccountMessage("");
-    setError("");
-    setNotice("");
-    if (newPassword !== confirmPassword) {
-      setAccountError("两次输入的新密码不一致");
-      setPasswordBusy(false);
-      return;
-    }
-    try {
-      await api("/auth/me/password", { method: "POST", body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }) });
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setAccountMessage("密码已更新");
-      setNotice("密码已更新");
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : "密码修改失败";
-      setAccountError(message);
-      setError(message);
-    } finally {
-      setPasswordBusy(false);
-    }
-  }
-
   if (initialized === null) return <main className="human-loading"><LoaderCircle className="spin" /> 正在启动</main>;
-  if (!user) return <Auth initialized={initialized} done={value => { setUser(value); refresh(); }} />;
+  if (!workbench.user) return <Auth initialized={initialized} done={value => { workbench.setUser(value); workbench.refresh(); }} />;
 
-  const operationMessage = error || notice || (loading ? "正在刷新数据" : "空闲");
-  const operationTone = error ? "error" : loading ? "busy" : notice ? "success" : "idle";
-  const userDisplayName = user.display_name || user.username;
+  const operationMessage = workbench.error || workbench.notice || (workbench.loading ? "正在刷新数据" : "空闲");
+  const operationTone = workbench.error ? "error" : workbench.loading ? "busy" : workbench.notice ? "success" : "idle";
+  const userDisplayName = workbench.user.display_name || workbench.user.username;
 
   return <div className={`human-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
     <SidebarNav
@@ -172,14 +55,14 @@ export default function HumanApp() {
       roleModuleTitle={navigation.roleModuleTitle}
       expandedModules={navigation.expandedModules}
       selectedSecondaryOwner={navigation.selectedSecondaryOwner}
-      username={user.username}
+      username={workbench.user.username}
       onToggleSidebar={() => setSidebarCollapsed(value => !value)}
       onPrimaryModuleClick={navigation.handlePrimaryModuleClick}
       onSelectRoleModule={navigation.selectRoleModule}
       onSelectOperationView={navigation.selectOperationView}
       onSelectVideoView={navigation.selectVideoView}
       onSelectImageView={navigation.selectImageView}
-      onLogout={() => { clearToken(); setUser(null); }}
+      onLogout={() => { clearToken(); workbench.setUser(null); }}
     />
     <main>
       <AppHeader
@@ -188,38 +71,38 @@ export default function HumanApp() {
         operationMessage={operationMessage}
         operationTone={operationTone}
         userDisplayName={userDisplayName}
-        onOpenAccount={() => { setAccountOpen(true); setAccountError(""); setAccountMessage(""); }}
+        onOpenAccount={account.openAccount}
       />
-      {accountOpen && <AccountDialog
-        user={user}
-        profileName={profileName}
-        profilePhone={profilePhone}
-        currentPassword={currentPassword}
-        newPassword={newPassword}
-        confirmPassword={confirmPassword}
-        accountBusy={accountBusy}
-        passwordBusy={passwordBusy}
-        accountMessage={accountMessage}
-        accountError={accountError}
-        onClose={() => setAccountOpen(false)}
-        onProfileNameChange={setProfileName}
-        onProfilePhoneChange={setProfilePhone}
-        onCurrentPasswordChange={setCurrentPassword}
-        onNewPasswordChange={setNewPassword}
-        onConfirmPasswordChange={setConfirmPassword}
-        onSaveProfile={saveAccountProfile}
-        onSavePassword={savePassword}
+      {account.accountOpen && <AccountDialog
+        user={workbench.user}
+        profileName={account.profileName}
+        profilePhone={account.profilePhone}
+        currentPassword={account.currentPassword}
+        newPassword={account.newPassword}
+        confirmPassword={account.confirmPassword}
+        accountBusy={account.accountBusy}
+        passwordBusy={account.passwordBusy}
+        accountMessage={account.accountMessage}
+        accountError={account.accountError}
+        onClose={() => account.setAccountOpen(false)}
+        onProfileNameChange={account.setProfileName}
+        onProfilePhoneChange={account.setProfilePhone}
+        onCurrentPasswordChange={account.setCurrentPassword}
+        onNewPasswordChange={account.setNewPassword}
+        onConfirmPasswordChange={account.setConfirmPassword}
+        onSaveProfile={account.saveAccountProfile}
+        onSavePassword={account.savePassword}
       />}
-      {navigation.module === "video" && navigation.view === "flow" && <Flow materials={materials} copies={copies} music={music} drafts={drafts} />}
-      {navigation.module === "video" && navigation.view === "materials" && <Materials products={products} act={act} />}
-      {navigation.module === "video" && navigation.view === "copy" && <CopyLibrary copies={copies} narrations={narrations} act={act} reload={refresh} />}
-      {navigation.module === "video" && navigation.view === "music" && <MusicLibrary music={music} act={act} />}
-      {navigation.module === "video" && navigation.view === "production" && <DraftProduction copies={copies} narrations={narrations} music={music} drafts={drafts} act={act} />}
-      {navigation.module === "aiVideo" && <AiVideoProduction onError={setError} onNotice={setNotice} />}
-      {navigation.module === "operations" && <OperationsCenter view={navigation.operationView} onError={setError} onNotice={setNotice} />}
+      {navigation.module === "video" && navigation.view === "flow" && <Flow materials={workbench.materials} copies={workbench.copies} music={workbench.music} drafts={workbench.drafts} />}
+      {navigation.module === "video" && navigation.view === "materials" && <Materials products={workbench.products} act={workbench.act} />}
+      {navigation.module === "video" && navigation.view === "copy" && <CopyLibrary copies={workbench.copies} narrations={workbench.narrations} act={workbench.act} reload={workbench.refresh} />}
+      {navigation.module === "video" && navigation.view === "music" && <MusicLibrary music={workbench.music} act={workbench.act} />}
+      {navigation.module === "video" && navigation.view === "production" && <DraftProduction copies={workbench.copies} narrations={workbench.narrations} music={workbench.music} drafts={workbench.drafts} act={workbench.act} />}
+      {navigation.module === "aiVideo" && <AiVideoProduction onError={workbench.setError} onNotice={workbench.setNotice} />}
+      {navigation.module === "operations" && <OperationsCenter view={navigation.operationView} onError={workbench.setError} onNotice={workbench.setNotice} />}
       {navigation.roleModuleTitle && <RoleCenter module={navigation.module} />}
-      {navigation.module === "images" && <ImageProduction view={navigation.imageView} onError={setError} onNotice={setNotice} />}
-      {navigation.module === "models" && <BusinessModelSettings onError={setError} onNotice={setNotice} />}
+      {navigation.module === "images" && <ImageProduction view={navigation.imageView} onError={workbench.setError} onNotice={workbench.setNotice} />}
+      {navigation.module === "models" && <BusinessModelSettings onError={workbench.setError} onNotice={workbench.setNotice} />}
     </main>
   </div>;
 }
