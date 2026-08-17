@@ -344,6 +344,10 @@ def test_model_profiles_only_contain_current_bailian_stages(workbench_database):
         "speech_recognition",
         "speech_synthesis",
     ]
+    ai_video = next(item for item in profiles if item.stage == "ai_video_generation")
+    assert ai_video.provider_type == "vendor_video_api"
+    assert ai_video.protocol == "video_generation"
+    assert {"text_to_video", "image_to_video", "remote_output"}.issubset(set(ai_video.capabilities))
     profiles[0].api_key = "sk-current-test-key"
     profiles[0].model = "qwen-test"
     save_model_profiles(profiles)
@@ -367,4 +371,3 @@ def test_model_profile_can_be_saved_independently(workbench_database):
     assert next(item for item in after if item.stage == "copywriting").model == next(item for item in before if item.stage == "copywriting").model
     assert next(item for item in after if item.stage == "speech_synthesis").model == next(item for item in before if item.stage == "speech_synthesis").model
     assert next(item for item in after if item.stage == "speech_recognition").api_key == "sk-independent"
-

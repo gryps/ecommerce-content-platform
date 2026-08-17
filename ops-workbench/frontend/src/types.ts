@@ -14,6 +14,9 @@ export type User = {
 export type ModelProfile = {
   stage: string;
   label: string;
+  provider_type: string;
+  protocol: string;
+  capabilities: string[];
   base_url: string;
   model: string;
   temperature: number;

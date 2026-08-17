@@ -54,6 +54,8 @@ export function BusinessModelSettings({ onError, onNotice }: { onError: (value: 
       <label>百炼兼容接口<input value={profile.base_url} onChange={event => update(stage, { base_url: event.target.value })} placeholder="https://.../compatible-mode/v1" /></label>
       <label>API Key<input type="password" value={profile.api_key} onChange={event => update(stage, { api_key: event.target.value })} placeholder={profile.api_key_mask || "sk-..."} /></label>
       <label>模型类别{listed.length ? <select value={profile.model} onChange={event => update(stage, { model: event.target.value })}><option value="">请选择模型类别</option>{options.map(value => <option key={value} value={value}>{value}</option>)}</select> : <input value={profile.model} onChange={event => update(stage, { model: event.target.value })} placeholder={stage === "speech_recognition" ? "请填写非实时 qwen3-asr-flash" : stage === "image_analysis" ? "请选择支持图片输入的视觉模型，例如 qwen-vl" : stage === "image_generation" ? "请选择支持参考图生图的模型" : stage === "ai_video_generation" ? "请填写文生视频或图生视频模型" : "读取列表后可下拉选择，也可手动填写"} />}</label>
+      <small>协议：{profile.protocol || "未声明"}；适配器：{profile.provider_type || "openai_compatible"}</small>
+      {!!profile.capabilities?.length && <div className="business-model-capabilities">{profile.capabilities.map(value => <span key={value}>{value}</span>)}</div>}
       {stage === "speech_recognition" && <small>仅支持非实时 qwen3-asr-flash；realtime 和 filetrans 使用其他接口，不能用于这里。</small>}
       {stage === "image_analysis" && <small>用于分析产品组原图并为各图类生成可人工编辑的提示词。</small>}
       {stage === "image_generation" && <small>用于接收提示词与原图，生成白底图、环境图、模特图、详情图等 AI 图。</small>}
