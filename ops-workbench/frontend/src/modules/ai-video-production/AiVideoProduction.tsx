@@ -1,7 +1,7 @@
 import { Clapperboard, ExternalLink, History, Play, Plus, Radio, RefreshCw, Upload, WandSparkles } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog";
-import type { DeleteConfirmation } from "../../types";
+import type { DeleteConfirmation, ImageProduct, ImageTask } from "../../types";
 import { useAiVideoProductionController } from "./useAiVideoProductionController";
 import type { GenerationTask } from "./types";
 
@@ -64,7 +64,7 @@ function ComfyUiBridge({ controller }: { controller: Controller }) {
     <div>
       <small>ComfyUI 生产引擎</small>
       <h2>AI宣传片控制台</h2>
-      <p>平台只保留商品图、分镜、任务和输出记录；场景图、关键帧、风格图等由模型在 ComfyUI workflow 中生成。</p>
+      <p>商品图可手动上传，也可引用图片生产模块的已审核结果；场景图、关键帧、风格图等由模型在 ComfyUI workflow 中生成。</p>
     </div>
     <div className="ai-comfy-actions">
       <button type="button" onClick={controller.checkComfyUI} disabled={controller.loading}><Radio />检测连接</button>
@@ -138,7 +138,7 @@ function Assets({ controller }: { controller: Controller }) {
   }
 
   return <section className="human-card">
-    <div className="human-card-title"><h2>商品图</h2><span>用户提供商品实拍图；其他画面图由模型生成</span></div>
+    <div className="human-card-title"><h2>商品图</h2><span>可手动上传，也可来自图片生产模块</span></div>
     <form className="ai-asset-form" onSubmit={submit}>
       <label>类型<select value={kind} onChange={event => setKind(event.target.value)}>{assetKinds.map(item => <option key={item[0]} value={item[0]}>{item[1]}</option>)}</select></label>
       <label>名称<input required value={name} onChange={event => setName(event.target.value)} /></label>
@@ -146,11 +146,54 @@ function Assets({ controller }: { controller: Controller }) {
       <label className="wide">备注<textarea placeholder="可写角度、材质、颜色或不可改变的商品细节" value={notes} onChange={event => setNotes(event.target.value)} /></label>
       <button type="submit" disabled={!controller.selectedProject || controller.loading}><Upload />{file ? "上传商品图" : "登记商品图"}</button>
     </form>
+    <ImageProductionAssetPicker controller={controller} />
     <div className="ai-asset-grid">
-      {controller.selectedProductAssets.map(asset => <article key={asset.id}><b>{asset.name}</b><span>商品图</span><p>{asset.notes || asset.file_path || "待补充文件和说明"}</p></article>)}
-      {!controller.selectedProductAssets.length && <p className="human-note">当前项目暂无商品图。场景图、关键帧和风格图无需在这里录入。</p>}
+      {controller.selectedProductAssets.map(asset => <article key={asset.id}><b>{asset.name}</b><span>{asset.notes?.startsWith("来自图片生产") ? "图片生产" : "商品图"}</span><p>{asset.notes || asset.file_path || "待补充文件和说明"}</p></article>)}
+      {!controller.selectedProductAssets.length && <p className="human-note">当前项目暂无商品图。可上传商品图，或引用图片生产模块已审核通过的商品图。</p>}
     </div>
   </section>;
+}
+
+function ImageProductionAssetPicker({ controller }: { controller: Controller }) {
+  const [productId, setProductId] = useState("");
+  const selectedProduct = controller.imageProducts.find(product => product.id === productId) || null;
+  const importableImages = useMemo(
+    () => buildImportableImages(controller.imageTasks, selectedProduct),
+    [controller.imageTasks, selectedProduct],
+  );
+
+  useEffect(() => {
+    if (!productId && controller.imageProducts[0]) setProductId(controller.imageProducts[0].id);
+  }, [controller.imageProducts, productId]);
+
+  return <div className="ai-workflow-template-note">
+    <b>从图片生产引用</b>
+    <span>选择图片生产模块里审核通过的结果图，作为 AI宣传片商品图输入</span>
+    <div className="ai-task-actions">
+      <select value={productId} onChange={event => setProductId(event.target.value)}>
+        <option value="">选择图片生产产品</option>
+        {controller.imageProducts.map(product => <option key={product.id} value={product.id}>{product.product_code} · {product.name}</option>)}
+      </select>
+      <button type="button" className="human-secondary compact" disabled={controller.loading} onClick={controller.loadImageProductionAssets}>刷新图片生产</button>
+    </div>
+    <div className="ai-asset-grid">
+      {importableImages.map(item => <article key={`${item.task.id}-${item.outputIndex}`}>
+        <b>{item.image.image_type} · {item.image.name}</b>
+        <span>{item.task.template_name}</span>
+        <p>{item.product.product_code} · {item.product.name}</p>
+        <button type="button" className="human-secondary compact" disabled={!controller.selectedProject || controller.loading} onClick={() => controller.importImageProductionAsset(item)}>引用</button>
+      </article>)}
+      {selectedProduct && !importableImages.length && <p className="human-note">该产品暂无审核通过的图片生产结果。</p>}
+      {!controller.imageProducts.length && <p className="human-note">图片生产模块暂无产品或当前账号无法读取。</p>}
+    </div>
+  </div>;
+}
+
+function buildImportableImages(tasks: ImageTask[], product: ImageProduct | null) {
+  if (!product) return [];
+  return tasks
+    .filter(task => task.product_id === product.id && task.review_status === "approved")
+    .flatMap(task => task.output_images.map((image, outputIndex) => ({ product, task, image, outputIndex })));
 }
 
 function DirectorAndShots({ controller }: { controller: Controller }) {

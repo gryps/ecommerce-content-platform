@@ -54,6 +54,7 @@ from app.api.v1.ai_video_production import (
     create_generation_task,
     create_project as create_ai_video_project,
     delete_project as delete_ai_video_project,
+    import_asset_from_image_production,
     list_task_events as list_ai_video_task_events,
     submit_task as submit_ai_video_task,
     upload_asset as upload_ai_video_asset,
@@ -71,6 +72,7 @@ from app.domain.models import (
     CommerceImageGroup,
     CommerceImageProduct,
     CommerceImageSourceAsset,
+    CommerceImageTask,
     JianyingDraft,
     MediaAsset,
     MediaAssetTag,
@@ -83,7 +85,8 @@ from app.domain.models import (
 )
 from app.main import app
 from app.models import ModelProfile
-from app.services.ai_video.models import GenerationTask, ProductProject
+from app.services.ai_video.models import GenerationTask, ImageProductionAssetImport, ProductProject
+from app.services.ai_video.executor import build_video_request
 from app.services.ai_video.provider_adapters import StandardSubmitResult, StandardTaskStatus
 from app.services.ai_video.store import repository as ai_video_repository
 from app.services.auth import (

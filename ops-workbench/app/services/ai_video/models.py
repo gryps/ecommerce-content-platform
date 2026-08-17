@@ -45,6 +45,12 @@ class Asset(BaseModel):
     updated_at: str = Field(default_factory=now_iso)
 
 
+class ImageProductionAssetImport(BaseModel):
+    project_id: str
+    task_id: str
+    output_index: int = Field(ge=0)
+
+
 class Shot(BaseModel):
     id: str = Field(default_factory=new_id)
     project_id: str

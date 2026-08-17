@@ -16,6 +16,7 @@ export interface Asset {
   kind: AssetKind;
   name: string;
   file_path: string;
+  preview_url: string;
   source: string;
   notes: string;
 }
