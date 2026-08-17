@@ -44,16 +44,18 @@ export function AiVideoProduction({ onError, onNotice }: { onError: (value: stri
       <article><b>{controller.selectedTasks.length}</b><span>生成任务</span></article>
     </div>
     <div className="ai-video-console-grid">
-      <section className="ai-video-main">
-        <ProjectCreator controller={controller} />
-        <Assets controller={controller} />
-        <DirectorAndShots controller={controller} />
-        <TaskDispatcher controller={controller} />
-        <TaskList controller={controller} />
-      </section>
       <aside className="ai-video-side">
         <ProjectPicker controller={controller} />
+        <ProjectCreator controller={controller} />
       </aside>
+      <section className="ai-video-main">
+        <Assets controller={controller} />
+        <div className="ai-video-production-row">
+          <DirectorAndShots controller={controller} />
+          <TaskDispatcher controller={controller} />
+        </div>
+        <TaskList controller={controller} />
+      </section>
     </div>
   </section>;
 }
@@ -92,14 +94,14 @@ function ProjectCreator({ controller }: { controller: Controller }) {
     <label>目标人群<input value={form.audience} onChange={event => setForm({ ...form, audience: event.target.value })} /></label>
     <label className="wide">核心卖点<textarea value={form.selling_points} onChange={event => setForm({ ...form, selling_points: event.target.value })} /></label>
     <label className="wide">视觉调性<input value={form.tone} onChange={event => setForm({ ...form, tone: event.target.value })} /></label>
-    <button type="submit" disabled={controller.loading || duplicateName}><Plus />创建项目</button>
+    <button type="submit" className="ai-project-submit" disabled={controller.loading || duplicateName}><Plus />创建项目</button>
   </form>;
 }
 
 function ProjectPicker({ controller }: { controller: Controller }) {
   const [confirmation, setConfirmation] = useState<DeleteConfirmation | null>(null);
 
-  return <section className="human-card">
+  return <section className="human-card ai-project-picker">
     <div className="human-card-title"><h2>当前项目</h2><span>{controller.selectedProject?.id || "尚未创建"}</span></div>
     <div className="ai-project-list">
       {controller.store.projects.map(project => <article key={project.id} className={project.id === controller.selectedProject?.id ? "active" : ""}>
@@ -137,19 +139,24 @@ function Assets({ controller }: { controller: Controller }) {
     event.currentTarget.reset();
   }
 
-  return <section className="human-card">
+  return <section className="human-card ai-assets-section">
     <div className="human-card-title"><h2>商品图</h2><span>可手动上传，也可来自图片生产模块</span></div>
-    <form className="ai-asset-form" onSubmit={submit}>
-      <label>类型<select value={kind} onChange={event => setKind(event.target.value)}>{assetKinds.map(item => <option key={item[0]} value={item[0]}>{item[1]}</option>)}</select></label>
-      <label>名称<input required value={name} onChange={event => setName(event.target.value)} /></label>
-      <label className="wide">商品图片<input type="file" accept="image/*" onChange={chooseFile} /></label>
-      <label className="wide">备注<textarea placeholder="可写角度、材质、颜色或不可改变的商品细节" value={notes} onChange={event => setNotes(event.target.value)} /></label>
-      <button type="submit" disabled={!controller.selectedProject || controller.loading}><Upload />{file ? "上传商品图" : "登记商品图"}</button>
-    </form>
-    <ImageProductionAssetPicker controller={controller} />
-    <div className="ai-asset-grid">
-      {controller.selectedProductAssets.map(asset => <article key={asset.id}><b>{asset.name}</b><span>{asset.notes?.startsWith("来自图片生产") ? "图片生产" : "商品图"}</span><p>{asset.notes || asset.file_path || "待补充文件和说明"}</p></article>)}
-      {!controller.selectedProductAssets.length && <p className="human-note">当前项目暂无商品图。可上传商品图，或引用图片生产模块已审核通过的商品图。</p>}
+    <div className="ai-assets-layout">
+      <form className="ai-asset-form" onSubmit={submit}>
+        <label>类型<select value={kind} onChange={event => setKind(event.target.value)}>{assetKinds.map(item => <option key={item[0]} value={item[0]}>{item[1]}</option>)}</select></label>
+        <label>名称<input required value={name} onChange={event => setName(event.target.value)} /></label>
+        <label className="wide">商品图片<input type="file" accept="image/*" onChange={chooseFile} /></label>
+        <label className="wide">备注<textarea placeholder="可写角度、材质、颜色或不可改变的商品细节" value={notes} onChange={event => setNotes(event.target.value)} /></label>
+        <button type="submit" disabled={!controller.selectedProject || controller.loading}><Upload />{file ? "上传商品图" : "登记商品图"}</button>
+      </form>
+      <ImageProductionAssetPicker controller={controller} />
+    </div>
+    <div className="ai-current-assets">
+      <div className="ai-section-subtitle"><b>当前项目商品图</b><span>{controller.selectedProductAssets.length} 张</span></div>
+      <div className="ai-asset-grid">
+        {controller.selectedProductAssets.map(asset => <article key={asset.id}><b>{asset.name}</b><span>{asset.notes?.startsWith("来自图片生产") ? "图片生产" : "商品图"}</span><p>{asset.notes || asset.file_path || "待补充文件和说明"}</p></article>)}
+        {!controller.selectedProductAssets.length && <p className="human-note">当前项目暂无商品图。可上传商品图，或引用图片生产模块已审核通过的商品图。</p>}
+      </div>
     </div>
   </section>;
 }
@@ -166,10 +173,9 @@ function ImageProductionAssetPicker({ controller }: { controller: Controller }) 
     if (!productId && controller.imageProducts[0]) setProductId(controller.imageProducts[0].id);
   }, [controller.imageProducts, productId]);
 
-  return <div className="ai-workflow-template-note">
-    <b>从图片生产引用</b>
-    <span>选择图片生产模块里审核通过的结果图，作为 AI宣传片商品图输入</span>
-    <div className="ai-task-actions">
+  return <div className="ai-image-source-panel">
+    <div className="ai-section-subtitle"><b>从图片生产引用</b><span>审核通过的结果图可作为宣传片商品图输入</span></div>
+    <div className="ai-image-source-toolbar">
       <select value={productId} onChange={event => setProductId(event.target.value)}>
         <option value="">选择图片生产产品</option>
         {controller.imageProducts.map(product => <option key={product.id} value={product.id}>{product.product_code} · {product.name}</option>)}
@@ -197,7 +203,7 @@ function buildImportableImages(tasks: ImageTask[], product: ImageProduct | null)
 }
 
 function DirectorAndShots({ controller }: { controller: Controller }) {
-  return <section className="human-card">
+  return <section className="human-card ai-director-card">
     <div className="human-card-title"><h2>导演分镜</h2><span>把商品目标转成可复制到 ComfyUI 的镜头提示词</span></div>
     <div className="ai-director-panel inline">
       <div><small>AI Director</small><p>平台生成业务分镜草稿，人工确认后再进入 ComfyUI workflow 或厂商视频 API。</p></div>
@@ -262,7 +268,7 @@ function buildBusinessPrompt(project: Controller["selectedProject"], shots: Cont
 }
 
 function TaskList({ controller }: { controller: Controller }) {
-  return <section className="human-card">
+  return <section className="human-card ai-task-section">
     <div className="human-card-title"><h2>任务与结果</h2><span>平台保留任务 ID、状态、错误和本地输出路径</span></div>
     <div className="ai-task-list">
       {controller.selectedTasks.map(task => <TaskCard key={task.id} task={task} controller={controller} />)}
