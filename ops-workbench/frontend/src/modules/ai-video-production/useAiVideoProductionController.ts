@@ -158,6 +158,36 @@ export function useAiVideoProductionController() {
     }
   }
 
+  async function submitTask(taskId: string) {
+    setError("");
+    setLoading(true);
+    try {
+      const submitted = await api<GenerationTask>(`/ai-video/generation/tasks/${taskId}/submit`, { method: "POST" });
+      setMessage(submitted.status === "failed" ? `任务提交失败：${submitted.error}` : "生成任务已提交");
+      await refresh();
+      return submitted;
+    } catch (reason) {
+      actionError(reason, "生成任务提交失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function refreshTask(taskId: string) {
+    setError("");
+    setLoading(true);
+    try {
+      const task = await api<GenerationTask>(`/ai-video/generation/tasks/${taskId}/refresh`, { method: "POST" });
+      setMessage(task.status === "failed" ? `任务刷新失败：${task.error}` : "任务状态已刷新");
+      await refresh();
+      return task;
+    } catch (reason) {
+      actionError(reason, "生成任务刷新失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function checkComfyUI() {
     setError("");
     setLoading(true);
@@ -189,6 +219,8 @@ export function useAiVideoProductionController() {
     uploadAsset,
     draftShots,
     createTask,
+    submitTask,
+    refreshTask,
     checkComfyUI,
     refresh,
   };
