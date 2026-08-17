@@ -35,6 +35,7 @@ ComfyUI：http://192.168.31.24:8188/
 - 远端开发测试依赖已安装，当前测试 `36 passed`，前端生产构建通过。
 - AI 宣传片新增 SQLite 表和任务事件表，旧 JSON 数据已导入数据库。
 - 新增 `/ai-video/generation/tasks/{task_id}/submit` 和 `/events` 后端边界。
+- 前端平台壳层已拆分到 `frontend/src/components/shell/`，导航配置在 `moduleNavigation.ts`，壳层样式在 `frontend/src/styles/`；后续改导航、账号弹窗或顶部状态栏不要再堆回 `HumanApp.tsx`。
 
 ## 仍需后续完成但本阶段不处理
 

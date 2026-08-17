@@ -213,11 +213,23 @@ NO_PROXY 包含 localhost、127.0.0.1、192.168.31.24
 当前已完成的工程化收口：
 
 - 小主机源码已纳入 Git 管理。
+- 前端入口已拆出壳层：`frontend/src/components/shell/` 存放导航配置、侧边栏、顶部栏和账号弹窗；`frontend/src/styles/` 存放壳层和登录样式；`HumanApp.tsx` 只保留登录态、基础数据刷新、模块状态和页面分发。
 - `deploy/product-video-automation.service` 改成模板，不再写死 WSL 路径。
 - `scripts/install_systemd_service.sh` 可按当前目录生成用户级 systemd service。
 - `scripts/verify_deploy.sh` 可检查平台服务、ComfyUI、数据库版本、静态资源和健康接口。
 - `scripts/write_deploy_manifest.py` 会写入 `ops-workbench-runtime/DEPLOY_MANIFEST.json`。
 - 远端 venv 已安装 `requirements-dev.txt`，可直接运行 `../.venv/bin/python -m pytest -q`。
+
+当前最近验证：
+
+```text
+npm --prefix frontend run build：通过
+scripts/verify_deploy.sh：通过
+product-video-automation：active
+comfyui：active
+```
+
+注意：前端壳层拆分本轮只做了构建和部署自检，没有引入浏览器自动化点击测试；项目当前没有 Playwright/E2E 脚本。
 - AI 宣传片新增数据库表：项目、资产、分镜、生成任务、任务事件。
 - AI 宣传片新增任务提交边界：占位 workflow 会明确失败并写入事件；真实 ComfyUI API workflow 可沿同一入口提交。
 

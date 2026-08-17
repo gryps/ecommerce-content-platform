@@ -161,6 +161,7 @@ ComfyUI 服务：comfyui，active
 - 小主机适合作为平台服务器和 ComfyUI/API 中控，不适合作为本地 AI 推理算力机器。
 - AI 宣传片数据已从 JSON 原型文件迁入 SQLite 表；后续任务、事件、结果回收都应继续走数据库。
 - 后端已建立 ComfyUI 任务提交边界；占位 workflow 会明确失败并记录事件，真实 API workflow 接入后复用同一入口。
+- 前端平台壳层已拆出：导航配置、侧边栏、顶部状态栏、账号弹窗分别位于 `ops-workbench/frontend/src/components/shell/`；壳层和登录样式位于 `ops-workbench/frontend/src/styles/`。
 
 当前 ComfyUI 小主机状态：
 
@@ -194,6 +195,8 @@ ComfyUI 视频方向工作重点：
 4. 建立平台字段到 ComfyUI 节点参数的映射表。
 5. 明确输出回收规则：视频文件、封面图、prompt、厂商任务 ID、成本、错误原因、重试记录。
 6. 再把成熟 workflow 接回 AI 宣传片页面，形成“平台录入资产和任务，画布呈现与调参，平台记录生产结果”的闭环。
+
+当前建议不要继续扩大前端页面，先做一个真实模型 API adapter。adapter 要记录厂商任务 ID、请求参数摘要、错误原因、耗时和输出文件路径；API Key 继续放后端配置，不写入 ComfyUI workflow JSON。
 
 建议下一次开发先从一个最小闭环开始：
 
