@@ -69,6 +69,44 @@ def test_ai_video_project_asset_shot_and_task_flow(workbench_database, monkeypat
     assert event_types == ["created", "submit_failed"]
 
 
+def test_ai_video_project_names_are_unique_and_delete_cascades(workbench_database, monkeypatch):
+    monkeypatch.setattr(ai_video_repository, "path", workbench_database / "ai-video" / "databases" / "workbench.json")
+    project = create_ai_video_project(ProductProject(name="测试宣传片", product_name="商品A"), _admin=admin())
+    with pytest.raises(HTTPException) as duplicate:
+        create_ai_video_project(ProductProject(name=" 测试宣传片 ", product_name="商品B"), _admin=admin())
+    assert duplicate.value.status_code == 409
+
+    asset = upload_ai_video_asset(
+        project_id=project.id,
+        kind="product",
+        name="主图",
+        notes="",
+        file=UploadFile(filename="product.png", file=io.BytesIO(b"png-bytes")),
+        _admin=admin(),
+    )
+    create_director_shots({"project_id": project.id}, _admin=admin())
+    task = create_generation_task(
+        GenerationTask(
+            project_id=project.id,
+            engine="vendor_video",
+            workflow_name="text_to_video",
+            prompt="测试",
+            input_asset_ids=[asset.id],
+        ),
+        _admin=admin(),
+    )
+
+    delete_ai_video_project(project.id, _admin=admin())
+    store = ai_video_repository.load()
+    assert not any(item.id == project.id for item in store.projects)
+    assert not any(item.project_id == project.id for item in store.assets)
+    assert not any(item.project_id == project.id for item in store.shots)
+    assert not any(item.project_id == project.id for item in store.tasks)
+    with pytest.raises(HTTPException) as missing_events:
+        list_ai_video_task_events(task.id, _admin=admin())
+    assert missing_events.value.status_code == 404
+
+
 def test_ai_video_vendor_adapter_submit_and_refresh(workbench_database, monkeypatch):
     monkeypatch.setattr(ai_video_repository, "path", workbench_database / "ai-video" / "databases" / "workbench.json")
     project = create_ai_video_project(

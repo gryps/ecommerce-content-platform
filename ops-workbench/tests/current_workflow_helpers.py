@@ -53,6 +53,7 @@ from app.api.v1.ai_video_production import (
     create_director_shots,
     create_generation_task,
     create_project as create_ai_video_project,
+    delete_project as delete_ai_video_project,
     list_task_events as list_ai_video_task_events,
     submit_task as submit_ai_video_task,
     upload_asset as upload_ai_video_asset,

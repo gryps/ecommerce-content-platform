@@ -31,7 +31,18 @@ def list_workflows(_admin: AdminUser = Depends(require_admin)) -> list[WorkflowT
 @router.post("/projects", response_model=ProductProject, status_code=status.HTTP_201_CREATED)
 def create_project(payload: ProductProject, _admin: AdminUser = Depends(require_admin)) -> ProductProject:
     project = ProductProject(**payload.model_dump(exclude={"id", "created_at", "updated_at"}))
-    return repository.add_project(project)
+    try:
+        return repository.add_project(project)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project(project_id: str, _admin: AdminUser = Depends(require_admin)) -> None:
+    try:
+        repository.delete_project(project_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @router.post("/assets", response_model=Asset, status_code=status.HTTP_201_CREATED)

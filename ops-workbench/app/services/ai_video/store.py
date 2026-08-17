@@ -6,7 +6,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -139,9 +139,36 @@ class AiVideoRepository:
                 session.add(self._task_row(task))
 
     def add_project(self, project: ProductProject) -> ProductProject:
+        project.name = project.name.strip()
+        project.product_name = project.product_name.strip()
+        if not project.name:
+            raise ValueError("AI视频项目名不能为空")
         with session_scope() as session:
+            duplicate = session.scalar(
+                select(AiVideoProject.id).where(func.lower(AiVideoProject.name) == project.name.lower()).limit(1)
+            )
+            if duplicate:
+                raise ValueError("AI视频项目名已存在")
             session.add(self._project_row(project))
         return project
+
+    def delete_project(self, project_id: str) -> None:
+        with session_scope() as session:
+            project = self._require_project(session, project_id)
+            task_ids = [
+                row.id
+                for row in session.scalars(select(AiVideoGenerationTask).where(AiVideoGenerationTask.project_id == project_id)).all()
+            ]
+            if task_ids:
+                for event in session.scalars(select(AiVideoTaskEvent).where(AiVideoTaskEvent.task_id.in_(task_ids))).all():
+                    session.delete(event)
+                for task in session.scalars(select(AiVideoGenerationTask).where(AiVideoGenerationTask.id.in_(task_ids))).all():
+                    session.delete(task)
+            for shot in session.scalars(select(AiVideoShot).where(AiVideoShot.project_id == project_id)).all():
+                session.delete(shot)
+            for asset in session.scalars(select(AiVideoAsset).where(AiVideoAsset.project_id == project_id)).all():
+                session.delete(asset)
+            session.delete(project)
 
     def add_asset(self, asset: Asset) -> Asset:
         with session_scope() as session:

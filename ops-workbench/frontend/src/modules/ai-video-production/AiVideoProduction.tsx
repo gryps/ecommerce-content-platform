@@ -1,4 +1,4 @@
-import { CheckCircle2, Clapperboard, ExternalLink, History, LoaderCircle, Play, Plus, Radio, RefreshCw, Upload, WandSparkles } from "lucide-react";
+import { CheckCircle2, Clapperboard, ExternalLink, History, LoaderCircle, Play, Plus, Radio, RefreshCw, Trash2, Upload, WandSparkles } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { useAiVideoProductionController } from "./useAiVideoProductionController";
 import type { GenerationTask } from "./types";
@@ -80,29 +80,39 @@ function ComfyUiBridge({ controller }: { controller: Controller }) {
 
 function ProjectCreator({ controller }: { controller: Controller }) {
   const [form, setForm] = useState({ name: "", product_name: "", selling_points: "", audience: "", tone: "高质感、可信、适合电商投放" });
+  const duplicateName = controller.store.projects.some(project => project.name.trim().toLowerCase() === form.name.trim().toLowerCase());
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (duplicateName) return;
     await controller.createProject(form);
     setForm({ ...form, name: "", product_name: "", selling_points: "", audience: "" });
   }
 
   return <form className="human-card ai-project-form" onSubmit={submit}>
     <div className="human-card-title"><h2>新建宣传片项目</h2><span>平台侧业务上下文，不替代 ComfyUI workflow</span></div>
-    <label>项目名<input required value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></label>
+    <label>项目名<input required value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} />{duplicateName && <small className="ai-form-warning">项目名已存在</small>}</label>
     <label>商品名<input value={form.product_name} onChange={event => setForm({ ...form, product_name: event.target.value })} /></label>
     <label>目标人群<input value={form.audience} onChange={event => setForm({ ...form, audience: event.target.value })} /></label>
     <label className="wide">核心卖点<textarea value={form.selling_points} onChange={event => setForm({ ...form, selling_points: event.target.value })} /></label>
     <label className="wide">视觉调性<input value={form.tone} onChange={event => setForm({ ...form, tone: event.target.value })} /></label>
-    <button type="submit" disabled={controller.loading}><Plus />创建项目</button>
+    <button type="submit" disabled={controller.loading || duplicateName}><Plus />创建项目</button>
   </form>;
 }
 
 function ProjectPicker({ controller }: { controller: Controller }) {
+  async function removeProject(projectId: string, name: string) {
+    if (!window.confirm(`删除项目“${name}”？项目下的资产、分镜、任务和事件记录也会删除。`)) return;
+    await controller.deleteProject(projectId);
+  }
+
   return <section className="human-card">
     <div className="human-card-title"><h2>当前项目</h2><span>{controller.selectedProject?.id || "尚未创建"}</span></div>
     <div className="ai-project-list">
-      {controller.store.projects.map(project => <button key={project.id} type="button" className={project.id === controller.selectedProject?.id ? "active" : ""} onClick={() => controller.setSelectedProjectId(project.id)}><b>{project.name}</b><span>{project.product_name || "未填写商品名"}</span></button>)}
+      {controller.store.projects.map(project => <article key={project.id} className={project.id === controller.selectedProject?.id ? "active" : ""}>
+        <button type="button" onClick={() => controller.setSelectedProjectId(project.id)}><b>{project.name}</b><span>{project.product_name || "未填写商品名"}</span></button>
+        <button type="button" className="human-secondary danger" disabled={controller.loading} title="删除项目" onClick={() => removeProject(project.id, project.name)}><Trash2 /></button>
+      </article>)}
       {!controller.store.projects.length && <p className="human-note">先创建项目，再登记资产和调度 ComfyUI。</p>}
     </div>
   </section>;

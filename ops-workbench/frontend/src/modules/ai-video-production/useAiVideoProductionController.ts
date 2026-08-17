@@ -82,6 +82,25 @@ export function useAiVideoProductionController() {
     }
   }
 
+  async function deleteProject(projectId: string) {
+    setError("");
+    setLoading(true);
+    try {
+      await api<void>(`/ai-video/projects/${projectId}`, { method: "DELETE" });
+      setSelectedProjectId(current => current === projectId ? "" : current);
+      setTaskEvents(current => {
+        const taskIds = new Set(store.tasks.filter(task => task.project_id === projectId).map(task => task.id));
+        return Object.fromEntries(Object.entries(current).filter(([taskId]) => !taskIds.has(taskId)));
+      });
+      setMessage("项目已删除");
+      await refresh();
+    } catch (reason) {
+      actionError(reason, "项目删除失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function draftShots() {
     if (!selectedProject) return;
     setError("");
@@ -242,6 +261,7 @@ export function useAiVideoProductionController() {
     error,
     setSelectedProjectId,
     createProject,
+    deleteProject,
     addAsset,
     uploadAsset,
     draftShots,
