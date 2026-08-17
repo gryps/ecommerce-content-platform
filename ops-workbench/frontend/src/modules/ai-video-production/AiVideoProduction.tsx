@@ -1,4 +1,4 @@
-import { CheckCircle2, Clapperboard, ExternalLink, History, LoaderCircle, Play, Plus, Radio, RefreshCw, Upload, WandSparkles } from "lucide-react";
+import { Clapperboard, ExternalLink, History, Play, Plus, Radio, RefreshCw, Upload, WandSparkles } from "lucide-react";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog";
 import type { DeleteConfirmation } from "../../types";
@@ -58,7 +58,6 @@ export function AiVideoProduction({ onError, onNotice }: { onError: (value: stri
       </section>
       <aside className="ai-video-side">
         <ProjectPicker controller={controller} />
-        <BusinessHandoff controller={controller} />
       </aside>
     </div>
   </section>;
@@ -259,20 +258,4 @@ function TaskCard({ task, controller }: { task: GenerationTask; controller: Cont
       {!events.length && <p><span>暂无事件记录</span></p>}
     </div>}
   </article>;
-}
-
-function BusinessHandoff({ controller }: { controller: Controller }) {
-  const stages = useMemo(() => [
-    ["平台资产", controller.selectedAssets.length ? "ready" : "empty", "商品图、人物、环境、参考图仍在平台管理。"],
-    ["ComfyUI画布", "external", "打开 ComfyUI 编排节点，平台只保存业务输入和任务记录。"],
-    ["厂商生成", controller.selectedTasks.length ? "ready" : "empty", "文生视频、图生视频通过模型 API 执行，不依赖本地显卡。"],
-    ["结果回收", controller.selectedTasks.some(task => task.output_paths.length) ? "ready" : "empty", "成功输出下载到小主机运行态目录，后续进入审核和导出。"],
-  ], [controller.selectedAssets.length, controller.selectedTasks]);
-
-  return <section className="human-card ai-handoff-card">
-    <div className="human-card-title"><h2>职责边界</h2><span>平台是业务中台，ComfyUI 是生产画布</span></div>
-    {stages.map(([title, state, text], index) => <article key={title} className={state}><i>{index + 1}</i><div><b>{title}</b><span>{text}</span></div></article>)}
-    {controller.loading && <LoaderCircle className="spin" />}
-    <CheckCircle2 className="ai-handoff-mark" />
-  </section>;
 }

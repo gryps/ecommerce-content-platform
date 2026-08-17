@@ -606,14 +606,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid rgb(88 122 63 / 1
 .ai-task-events p { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 8px; margin: 0; color: #66726b; font-size: 11px; line-height: 1.55; }
 .ai-task-events b { color: #2f3b34; font-size: 11px; }
 .ai-task-events span { overflow: hidden; color: #66726b; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.ai-handoff-card { position: sticky; top: 16px; display: grid; gap: 10px; }
-.ai-handoff-card article { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 10px; border: 1px solid #e0e5de; background: #fbfcfa; }
-.ai-handoff-card article.ready { border-color: #c9dfbe; background: #f0f7ec; }
-.ai-handoff-card article.external { border-color: #d7dded; background: #f5f7fb; }
-.ai-handoff-card article i { display: grid; place-items: center; width: 26px; height: 24px; border-radius: 4px; background: #26332b; color: white; font-size: 11px; font-style: normal; font-weight: 850; }
-.ai-handoff-card article b { color: #2f3b34; font-size: 12px; }
-.ai-handoff-card article span { display: block; margin-top: 4px; color: #66726b; font-size: 11px; line-height: 1.55; }
-.ai-handoff-mark { justify-self: end; width: 20px; color: #587a3f; }
 .ai-workflow-canvas-card { margin-bottom: 16px; }
 .ai-workflow-canvas-card.compact { margin-bottom: 0; }
 .ai-workflow-canvas { display: grid; grid-template-columns: minmax(0, 1fr) 292px; gap: 14px; align-items: stretch; }
