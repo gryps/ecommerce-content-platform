@@ -1,0 +1,44 @@
+name: ecommerce-content-platform
+
+services:
+  platform:
+    image: ecommerce-content-platform:${ECOMMERCE_CONTENT_VERSION:-latest}
+    build:
+      context: ./ops-workbench
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: ${ECOMMERCE_CONTENT_VERSION:-dev}
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${ECOMMERCE_CONTENT_PORT:-8000}:8000"
+    environment:
+      PVA_RUNTIME_DIR: /home/gryps/apps/ecommerce-ops-platform/ops-workbench-runtime
+      PVA_WORKSPACE_DIR: /home/gryps/apps/ecommerce-ops-platform/ops-workbench-runtime/workspace
+      PVA_STATIC_DIR: /app/static-workbench
+      PVA_MOUNT_ROOTS: '["/home/gryps/apps/ecommerce-ops-platform/ops-workbench-runtime"]'
+      PVA_WORKBENCH_DATABASE_URL: ${PVA_WORKBENCH_DATABASE_URL:-}
+      PVA_COMFYUI_BASE_URL: ${PVA_COMFYUI_BASE_URL:-http://host.docker.internal:8188}
+      PVA_AUTH_SESSION_HOURS: ${PVA_AUTH_SESSION_HOURS:-24}
+      PVA_MEDIA_PROBE_TIMEOUT_SECONDS: ${PVA_MEDIA_PROBE_TIMEOUT_SECONDS:-60}
+    volumes:
+      - type: bind
+        source: ${ECOMMERCE_CONTENT_DATA_DIR:-./ops-workbench-runtime}
+        target: /home/gryps/apps/ecommerce-ops-platform/ops-workbench-runtime
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=5).read()"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

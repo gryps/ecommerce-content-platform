@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Iterator
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, create_engine, event, inspect
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
@@ -84,6 +84,15 @@ def migrate_workbench_schema() -> None:
     config = Config(str(project_root / "alembic.ini"))
     config.set_main_option("script_location", str(project_root / "migrations"))
     config.set_main_option("sqlalchemy.url", database_url())
+    engine = get_engine()
+    if not inspect(engine).get_table_names():
+        # Historical migrations preserve upgrades for existing installations,
+        # while a new deployment can build the current model set directly.
+        # This includes retained compatibility tables but avoids replaying the
+        # retired application flow through every historical migration.
+        init_workbench_schema()
+        command.stamp(config, "head")
+        return
     command.upgrade(config, "head")
 
 

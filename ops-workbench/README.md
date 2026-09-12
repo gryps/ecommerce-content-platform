@@ -54,4 +54,8 @@ npm --prefix frontend run build
 python -m pytest -q
 ```
 
+## Docker
+
+仓库根目录的 `compose.yaml` 使用本目录的 `Dockerfile` 构建镜像，并将运行数据以宿主目录挂载到容器。构建、迁移、健康检查和回滚说明见 `../docs/DOCKER_DEPLOYMENT.md`。
+
 不得把运行数据、API Key、厂商凭据或生成媒体提交到 Git。不得在未得到用户明确确认时触发付费视频生成。

@@ -56,4 +56,13 @@ python -m pytest -q
 npm --prefix frontend run build
 ```
 
+## Docker Deployment
+
+The repository-level `compose.yaml` builds an image containing the backend, frontend static assets, and FFmpeg. Databases, uploads, and generated media remain in a persistent host directory. See the [Docker deployment guide](docs/DOCKER_DEPLOYMENT.md) for details.
+
+```bash
+cp .env.docker.example .env
+docker compose up -d --build
+```
+
 Runtime databases, uploaded assets, generated media, caches, API keys, and provider credentials must not be committed to Git.

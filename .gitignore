@@ -4,6 +4,7 @@
 ops-workbench-runtime/
 .env.*
 !.env.example
+!.env.docker.example
 
 # Python
 .venv/

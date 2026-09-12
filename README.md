@@ -56,4 +56,13 @@ python -m pytest -q
 npm --prefix frontend run build
 ```
 
+## Docker 部署
+
+仓库根目录提供 `compose.yaml`，镜像包含后端、前端静态资源和 FFmpeg，运行数据库、上传素材与生成媒体通过宿主目录持久化。详细说明见 [Docker 部署文档](docs/DOCKER_DEPLOYMENT.md)。
+
+```bash
+cp .env.docker.example .env
+docker compose up -d --build
+```
+
 数据库、上传素材、生成媒体、缓存、API Key 和厂商凭据均属于运行数据，不应提交到 Git。
