@@ -33,7 +33,7 @@ export function Auth({ initialized, done }: { initialized: boolean; done: (user:
     }
   }
   return <main className="human-auth"><form onSubmit={submit}>
-    <div className="human-logo"><ShoppingBag /> 电商运营平台</div>
+    <div className="human-logo"><ShoppingBag /> 电商内容平台</div>
     <h1>{setup ? "初始化管理员" : "管理员登录"}</h1>
     <label>账号<input value={username} onChange={event => setUsername(event.target.value)} required /></label>
     <label>密码<input type="password" value={password} onChange={event => setPassword(event.target.value)} required minLength={setup ? 10 : 1} /></label>

@@ -11,8 +11,6 @@ import { useWorkbenchData } from "./components/shell/useWorkbenchData";
 import { AiVideoProduction } from "./modules/ai-video-production/AiVideoProduction";
 import { ImageProduction } from "./modules/image-production/ImageProduction";
 import { BusinessModelSettings } from "./modules/model-config/BusinessModelSettings";
-import { OperationsCenter } from "./modules/operations/OperationsCenter";
-import { RoleCenter } from "./modules/role-centers/RoleCenter";
 import { CopyLibrary, DraftProduction, Flow, Materials, MusicLibrary } from "./modules/video-production/VideoProduction";
 
 export default function HumanApp() {
@@ -51,15 +49,11 @@ export default function HumanApp() {
       module={navigation.module}
       view={navigation.view}
       imageView={navigation.imageView}
-      operationView={navigation.operationView}
-      roleModuleTitle={navigation.roleModuleTitle}
       expandedModules={navigation.expandedModules}
       selectedSecondaryOwner={navigation.selectedSecondaryOwner}
       username={workbench.user.username}
       onToggleSidebar={() => setSidebarCollapsed(value => !value)}
       onPrimaryModuleClick={navigation.handlePrimaryModuleClick}
-      onSelectRoleModule={navigation.selectRoleModule}
-      onSelectOperationView={navigation.selectOperationView}
       onSelectVideoView={navigation.selectVideoView}
       onSelectImageView={navigation.selectImageView}
       onLogout={() => { clearToken(); workbench.setUser(null); }}
@@ -99,8 +93,6 @@ export default function HumanApp() {
       {navigation.module === "video" && navigation.view === "music" && <MusicLibrary music={workbench.music} act={workbench.act} />}
       {navigation.module === "video" && navigation.view === "production" && <DraftProduction copies={workbench.copies} narrations={workbench.narrations} music={workbench.music} drafts={workbench.drafts} act={workbench.act} />}
       {navigation.module === "aiVideo" && <AiVideoProduction onError={workbench.setError} onNotice={workbench.setNotice} />}
-      {navigation.module === "operations" && <OperationsCenter view={navigation.operationView} onError={workbench.setError} onNotice={workbench.setNotice} />}
-      {navigation.roleModuleTitle && <RoleCenter module={navigation.module} />}
       {navigation.module === "images" && <ImageProduction view={navigation.imageView} onError={workbench.setError} onNotice={workbench.setNotice} />}
       {navigation.module === "models" && <BusinessModelSettings onError={workbench.setError} onNotice={workbench.setNotice} />}
     </main>

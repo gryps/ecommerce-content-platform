@@ -1,25 +1,15 @@
 import { useEffect, useState } from "react";
-import type { ImageView, OperationView, PlatformModule, View } from "../../types";
+import type { ImageView, PlatformModule, View } from "../../types";
 import {
   getActiveTitle,
   getExpandedModule,
   getHeaderSubtitle,
-  getRoleModuleTitle,
-  roleModules,
   validExpandedModules,
   type ModuleNavItem,
   type ModuleNavKey,
 } from "./moduleNavigation";
 
 const validModules: PlatformModule[] = [
-  "operations",
-  "procurement",
-  "hostControl",
-  "adPlanning",
-  "customerService",
-  "warehouse",
-  "finance",
-  "project",
   "images",
   "aiVideo",
   "models",
@@ -49,7 +39,6 @@ export function useNavigationState() {
   const [module, setModule] = useState<PlatformModule>(storedPlatformModule);
   const [view, setView] = useState<View>("flow");
   const [imageView, setImageView] = useState<ImageView>("overview");
-  const [operationView, setOperationView] = useState<OperationView>("overview");
   const [expandedModules, setExpandedModules] = useState<ModuleNavKey[]>(() => storedExpandedModules(module));
   const [selectedSecondaryOwner, setSelectedSecondaryOwner] = useState<ModuleNavKey | "">("");
 
@@ -62,25 +51,14 @@ export function useNavigationState() {
   }, [expandedModules]);
 
   const handlePrimaryModuleClick = (item: ModuleNavItem) => {
-    const hasSecondaryNav = item.key === "operationsCenter" || item.key === "operations" || item.key === "video" || item.key === "images";
+    const hasSecondaryNav = item.key === "video" || item.key === "images";
     if (hasSecondaryNav) {
       setExpandedModules(current => current.includes(item.key) ? current.filter(key => key !== item.key) : [...current, item.key]);
     } else {
       setExpandedModules([]);
     }
     setSelectedSecondaryOwner("");
-    setModule(item.key === "operationsCenter" ? roleModules[0][0] : item.key);
-  };
-
-  const selectRoleModule = (owner: ModuleNavKey, key: PlatformModule) => {
-    setSelectedSecondaryOwner(owner);
-    setModule(key);
-  };
-
-  const selectOperationView = (owner: ModuleNavKey, key: OperationView) => {
-    setSelectedSecondaryOwner(owner);
-    setModule("operations");
-    setOperationView(key);
+    setModule(item.key);
   };
 
   const selectVideoView = (owner: ModuleNavKey, key: View) => {
@@ -99,15 +77,11 @@ export function useNavigationState() {
     module,
     view,
     imageView,
-    operationView,
     expandedModules,
     selectedSecondaryOwner,
-    roleModuleTitle: getRoleModuleTitle(module),
-    activeTitle: getActiveTitle(module, view, imageView, operationView),
+    activeTitle: getActiveTitle(module, view, imageView),
     headerSubtitle: getHeaderSubtitle(module),
     handlePrimaryModuleClick,
-    selectRoleModule,
-    selectOperationView,
     selectVideoView,
     selectImageView,
   };

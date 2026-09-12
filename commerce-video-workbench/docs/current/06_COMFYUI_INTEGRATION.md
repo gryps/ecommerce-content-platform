@@ -27,7 +27,7 @@ ComfyUI 是 AI 宣传片的工作流画布和视觉生产编排工具，不直�
 
 ```text
 主机：gryps@192.168.31.24
-电商运营平台：http://192.168.31.24:8000/workbench/
+电商内容平台：http://192.168.31.24:8000/workbench/
 ComfyUI：http://192.168.31.24:8188/
 ComfyUI 源码：/home/gryps/apps/ComfyUI
 启动脚本：/home/gryps/apps/run-comfyui-smallhost.sh

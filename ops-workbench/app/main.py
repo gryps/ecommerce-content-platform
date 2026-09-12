@@ -29,17 +29,7 @@ async def lifespan(_app: FastAPI):
     settings.runtime_dir.mkdir(parents=True, exist_ok=True)
     settings.workspace_dir.mkdir(parents=True, exist_ok=True)
     settings.static_dir.mkdir(parents=True, exist_ok=True)
-    module_runtime_dirs = (
-        settings.operations_runtime_dir,
-        settings.runtime_dir / "procurement",
-        settings.runtime_dir / "host-control",
-        settings.runtime_dir / "ad-planning",
-        settings.runtime_dir / "customer-service",
-        settings.runtime_dir / "warehouse",
-        settings.runtime_dir / "finance",
-        settings.runtime_dir / "project",
-        settings.runtime_dir / "ai-video",
-    )
+    module_runtime_dirs = (settings.runtime_dir / "ai-video",)
     for module_dir in module_runtime_dirs:
         module_dir.mkdir(parents=True, exist_ok=True)
         for child in ("imports", "exports", "reports", "temp"):
