@@ -16,8 +16,6 @@ from .human_workflow_routes.human_common import (
     ModelNarrationPayload,
     NarrationConfirmPayload,
     ProductTagPayload,
-    SourceDirectorySelectPayload,
-    SourceImagePreviewPayload,
     VoicePreviewPayload,
 )
 from .human_workflow_routes.copies import (
@@ -49,9 +47,7 @@ from .human_workflow_routes.materials import (
 from .human_workflow_routes.operations import operation_status
 from .human_workflow_routes.products import delete_human_product
 from .human_workflow_routes.source_files import (
-    preview_image_source_file,
-    select_image_source_files,
-    select_source_directory,
+    upload_source_videos,
 )
 from .human_workflow_routes.tags import (
     create_product_tag,

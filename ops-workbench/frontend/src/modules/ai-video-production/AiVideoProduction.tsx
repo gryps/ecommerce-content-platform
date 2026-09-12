@@ -2,7 +2,7 @@ import { Clapperboard, Download, ExternalLink, History, LoaderCircle, Play, Radi
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { apiBlob } from "../../api/client";
 import { ConfirmDeleteDialog } from "../../components/ConfirmDeleteDialog";
-import type { DeleteConfirmation, ImageProduct, ImageTask } from "../../types";
+import type { DeleteConfirmation } from "../../types";
 import { useAiVideoProductionController } from "./useAiVideoProductionController";
 import type { Asset, GenerationTask, Shot } from "./types";
 
@@ -60,8 +60,7 @@ function assetPreviewUrl(asset: Asset) {
 }
 
 function shortAssetNote(asset: Asset) {
-  const note = asset.notes?.startsWith("来自图片生产") ? asset.notes : "";
-  return note || (asset.preview_url ? "图片生产结果图" : "本地上传商品图");
+  return asset.notes || "本地上传商品图";
 }
 
 function AuthenticatedImage({ url, alt }: { url: string; alt: string }) {
@@ -365,7 +364,6 @@ function Assets({ controller, onAdvance }: { controller: Controller; onAdvance: 
         </div>}
         <button type="submit" disabled={controller.loading || !files.length}><Upload />上传{files.length > 1 ? `${files.length}张` : "商品图"}</button>
       </form>
-      <ImageProductionAssetPicker controller={controller} ensureProject={ensureProject} />
     </div>
     {!!controller.selectedProductAssets.length && <div className="ai-current-assets">
       <div className="ai-section-subtitle"><b>已选商品图</b><span>{controller.selectedProductAssets.length}/8 张</span></div>
@@ -374,7 +372,7 @@ function Assets({ controller, onAdvance }: { controller: Controller; onAdvance: 
           <figure><AuthenticatedImage url={assetPreviewUrl(asset)} alt={asset.name} /></figure>
           <div>
             <b>{index + 1}. {asset.name}</b>
-            <span>{asset.notes?.startsWith("来自图片生产") ? "图片生产" : "商品图"}</span>
+            <span>商品图</span>
             <p>{shortAssetNote(asset)}</p>
           </div>
         </article>)}
@@ -382,51 +380,6 @@ function Assets({ controller, onAdvance }: { controller: Controller; onAdvance: 
       <button type="button" className="human-secondary ai-next-step" onClick={onAdvance}>下一步：填写商品与宣传</button>
     </div>}
   </section>;
-}
-
-function ImageProductionAssetPicker({ controller, ensureProject }: { controller: Controller; ensureProject: () => Promise<Controller["selectedProject"] | undefined> }) {
-  const [productId, setProductId] = useState("");
-  const selectedProduct = controller.imageProducts.find(product => product.id === productId) || null;
-  const importableImages = useMemo(
-    () => buildImportableImages(controller.imageTasks, selectedProduct),
-    [controller.imageTasks, selectedProduct],
-  );
-
-  useEffect(() => {
-    if (!productId && controller.imageProducts[0]) setProductId(controller.imageProducts[0].id);
-  }, [controller.imageProducts, productId]);
-
-  return <div className="ai-image-source-panel">
-    <div className="ai-section-subtitle"><b>从图片生产引用</b><span>审核通过的结果图可作为 AI 视频商品图输入</span></div>
-    <div className="ai-image-source-toolbar">
-      <select value={productId} onChange={event => setProductId(event.target.value)}>
-        <option value="">选择图片生产产品</option>
-        {controller.imageProducts.map(product => <option key={product.id} value={product.id}>{product.product_code} · {product.name}</option>)}
-      </select>
-      <button type="button" className="human-secondary compact" disabled={controller.loading} onClick={controller.loadImageProductionAssets}>刷新图片生产</button>
-    </div>
-    <div className="ai-asset-grid">
-      {importableImages.map(item => <article key={`${item.task.id}-${item.outputIndex}`}>
-        <figure><AuthenticatedImage url={item.image.url} alt={item.image.name} /></figure>
-        <b>{item.image.image_type} · {item.image.name}</b>
-        <span>{item.task.template_name}</span>
-        <p>{item.product.product_code} · {item.product.name}</p>
-        <button type="button" className="human-secondary compact" disabled={controller.loading} onClick={async () => {
-          const project = await ensureProject();
-          if (project) await controller.importImageProductionAsset({ ...item, projectId: project.id });
-        }}>引用</button>
-      </article>)}
-      {selectedProduct && !importableImages.length && <p className="human-note">该产品暂无审核通过的图片生产结果。</p>}
-      {!controller.imageProducts.length && <p className="human-note">图片生产模块暂无产品或当前账号无法读取。</p>}
-    </div>
-  </div>;
-}
-
-function buildImportableImages(tasks: ImageTask[], product: ImageProduct | null) {
-  if (!product) return [];
-  return tasks
-    .filter(task => task.product_id === product.id && task.review_status === "approved")
-    .flatMap(task => task.output_images.map((image, outputIndex) => ({ product, task, image, outputIndex })));
 }
 
 function DirectorAndShots({ controller, onAdvance }: { controller: Controller; onAdvance: () => void }) {

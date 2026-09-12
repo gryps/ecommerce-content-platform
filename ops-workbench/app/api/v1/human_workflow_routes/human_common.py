@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 from app.config import settings
+from app.media import VIDEO_EXTENSIONS
 from app.ai import load_model_profiles
 from app.core.database import session_scope
 from app.core.security import utc_now
@@ -25,7 +26,6 @@ from app.services.copywriting import analyze_and_generate_copies, continue_copy_
 from app.services.speech_recognition import recognize_narration_audio
 from app.services.speech_synthesis import generate_narration_audio, generated_subtitle_cues
 from app.services.music_resources import prepare_shared_audio, prepare_uploaded_audio
-from app.services.source_directory_preview import resolve_source_image, select_native_image_files, select_native_source_files
 from app.services.voice_catalog import CATALOG_MODEL, voice_catalog_item, voice_catalog_page
 
 def _start_tracked_operation(operation_id: object, kind: str) -> str:
@@ -48,12 +48,6 @@ class MaterialClassificationPayload(BaseModel):
     product_id: int
     source_dir: str = Field(min_length=1, max_length=4000)
     items: list[MaterialClassificationItemPayload] = Field(min_length=1, max_length=5000)
-
-class SourceDirectorySelectPayload(BaseModel):
-    initial_path: str = Field(default='', max_length=2000)
-
-class SourceImagePreviewPayload(BaseModel):
-    path: str = Field(min_length=1, max_length=4000)
 
 class ProductTagPayload(BaseModel):
     name: str = Field(min_length=1, max_length=80)

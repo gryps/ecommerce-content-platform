@@ -1,6 +1,5 @@
 ﻿export type View = "flow" | "materials" | "copy" | "music" | "production";
-export type ImageView = "overview" | "batches" | "products" | "plans" | "review" | "delivery";
-export type PlatformModule = "video" | "aiVideo" | "images" | "models";
+export type PlatformModule = "video" | "aiVideo";
 
 export type User = {
   id: string;
@@ -38,114 +37,9 @@ export type Product = {
 };
 
 export type SourceVideo = { name: string; relative_path: string; path: string };
-export type SourceImage = { name: string; relative_path: string; path: string };
-
-export type ImageReference = {
-  type: string;
-  label: string;
-  expected_file_name: string;
-  purpose: string;
-  uploaded: boolean;
-  id?: string | null;
-  file_name: string;
-  url: string;
-  updated_at?: string | null;
-};
-
-export type ImageProduct = {
-  id: string;
-  product_code: string;
-  name: string;
-  status: string;
-  reference_count: number;
-  reference_total: number;
-  missing_reference_types: string[];
-  references: ImageReference[];
-  source_images: SourceImage[];
-  created_at: string;
-  updated_at: string;
-};
-
-export type ImageTemplate = {
-  id: string;
-  name: string;
-  image_type: string;
-  aspect_ratio: string;
-  scene: string;
-  negative: string;
-  recommended_models: string[];
-  input_image_types: string[];
-};
-
-export type ImagePrompt = {
-  template_id: string;
-  template_name: string;
-  recommended_models: string[];
-  input_image_types: string[];
-  prompt_zh: string;
-  negative_prompt_zh: string;
-  fidelity_rules: string[];
-  checkpoints: string[];
-};
-
-export type ImageTask = {
-  id: string;
-  product_id: string;
-  template_id: string;
-  template_name: string;
-  model: string;
-  prompt: string;
-  negative_prompt: string;
-  input_image_types: string[];
-  output_plan: Record<string, number>;
-  status: string;
-  output_images: Array<{ name: string; path: string; image_type: string; url: string }>;
-  review_status: string;
-  review_issues: string[];
-  review_comment: string;
-  created_at: string;
-  updated_at: string;
-};
-
-export type BrowserSession = { id: string; platform_url: string; status: "running" | "stopped" };
-export type PlatformField = {
-  key: string;
-  label: string;
-  type: "text" | "number" | "select" | "textarea" | "rich_text" | "sku_matrix";
-  required: boolean;
-  default: unknown;
-  options: string[];
-  selector: string;
-};
-export type PlatformImageSlot = { key: string; label: string; required: boolean; max_count: number; selector: string };
-export type PlatformTemplate = {
-  id: string;
-  name: string;
-  platform: string;
-  entry_url: string;
-  fields: PlatformField[];
-  image_slots: PlatformImageSlot[];
-  status: string;
-  created_at: string;
-  updated_at: string;
-};
-export type PlatformProfile = {
-  id: string;
-  product_id: string;
-  template_id: string;
-  values: Record<string, unknown>;
-  image_selections: Record<string, Array<{ task_id: string; output_index: number; name: string; url: string }>>;
-  status: string;
-  draft_url: string;
-  process_log: Array<{ at: string; detail: string }>;
-  created_at: string;
-  updated_at: string;
-};
 
 export type Tag = { id: string; name: string; category: string; category_id: string; product_id?: number };
 export type TagCategory = { id: string; name: string };
-export type ImageSourceAsset = { id: string; name: string; status: string; url: string; created_at: string; updated_at: string };
-export type SourceImageGroup = { id: string; name: string; images: SourceImage[]; basis: string; status: string };
 export type ClassifiedMaterial = {
   id: string;
   product_id: number;

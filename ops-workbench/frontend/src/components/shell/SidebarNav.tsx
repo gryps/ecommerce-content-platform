@@ -1,7 +1,6 @@
 import { Film, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import type { ImageView, PlatformModule, View } from "../../types";
+import type { PlatformModule, View } from "../../types";
 import {
-  imageNav,
   moduleGroups,
   videoNav,
   type ModuleNavItem,
@@ -12,14 +11,12 @@ type SidebarNavProps = {
   sidebarCollapsed: boolean;
   module: PlatformModule;
   view: View;
-  imageView: ImageView;
   expandedModules: ModuleNavKey[];
   selectedSecondaryOwner: ModuleNavKey | "";
   username: string;
   onToggleSidebar: () => void;
   onPrimaryModuleClick: (item: ModuleNavItem) => void;
   onSelectVideoView: (owner: ModuleNavKey, key: View) => void;
-  onSelectImageView: (owner: ModuleNavKey, key: ImageView) => void;
   onLogout: () => void;
 };
 
@@ -27,14 +24,12 @@ export function SidebarNav({
   sidebarCollapsed,
   module,
   view,
-  imageView,
   expandedModules,
   selectedSecondaryOwner,
   username,
   onToggleSidebar,
   onPrimaryModuleClick,
   onSelectVideoView,
-  onSelectImageView,
   onLogout,
 }: SidebarNavProps) {
   const renderSecondaryNav = (owner: ModuleNavItem) => {
@@ -42,13 +37,6 @@ export function SidebarNav({
     if (owner.key === "video") {
       return <nav className="platform-secondary-nav">{videoNav.map(([key, label, Icon]) => (
         <button key={key} title={sidebarCollapsed ? label : undefined} className={selectedSecondaryOwner === owner.key && view === key ? "active" : ""} onClick={() => onSelectVideoView(owner.key, key)}>
-          <Icon /><span>{label}</span>
-        </button>
-      ))}</nav>;
-    }
-    if (owner.key === "images") {
-      return <nav className="platform-secondary-nav">{imageNav.map(([key, label, Icon]) => (
-        <button key={key} title={sidebarCollapsed ? label : undefined} className={selectedSecondaryOwner === owner.key && imageView === key ? "active" : ""} onClick={() => onSelectImageView(owner.key, key)}>
           <Icon /><span>{label}</span>
         </button>
       ))}</nav>;

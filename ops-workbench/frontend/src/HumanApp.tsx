@@ -9,8 +9,6 @@ import { useAccountDialogState } from "./components/shell/useAccountDialogState"
 import { useNavigationState } from "./components/shell/useNavigationState";
 import { useWorkbenchData } from "./components/shell/useWorkbenchData";
 import { AiVideoProduction } from "./modules/ai-video-production/AiVideoProduction";
-import { ImageProduction } from "./modules/image-production/ImageProduction";
-import { BusinessModelSettings } from "./modules/model-config/BusinessModelSettings";
 import { CopyLibrary, DraftProduction, Flow, Materials, MusicLibrary } from "./modules/video-production/VideoProduction";
 
 export default function HumanApp() {
@@ -48,20 +46,18 @@ export default function HumanApp() {
       sidebarCollapsed={sidebarCollapsed}
       module={navigation.module}
       view={navigation.view}
-      imageView={navigation.imageView}
       expandedModules={navigation.expandedModules}
       selectedSecondaryOwner={navigation.selectedSecondaryOwner}
       username={workbench.user.username}
       onToggleSidebar={() => setSidebarCollapsed(value => !value)}
       onPrimaryModuleClick={navigation.handlePrimaryModuleClick}
       onSelectVideoView={navigation.selectVideoView}
-      onSelectImageView={navigation.selectImageView}
       onLogout={() => { clearToken(); workbench.setUser(null); }}
     />
     <main>
       <AppHeader
         subtitle={navigation.headerSubtitle}
-        title={navigation.activeTitle ?? "模型配置"}
+        title={navigation.activeTitle ?? "视频生产"}
         operationMessage={operationMessage}
         operationTone={operationTone}
         userDisplayName={userDisplayName}
@@ -93,8 +89,6 @@ export default function HumanApp() {
       {navigation.module === "video" && navigation.view === "music" && <MusicLibrary music={workbench.music} act={workbench.act} />}
       {navigation.module === "video" && navigation.view === "production" && <DraftProduction copies={workbench.copies} narrations={workbench.narrations} music={workbench.music} drafts={workbench.drafts} act={workbench.act} />}
       {navigation.module === "aiVideo" && <AiVideoProduction onError={workbench.setError} onNotice={workbench.setNotice} />}
-      {navigation.module === "images" && <ImageProduction view={navigation.imageView} onError={workbench.setError} onNotice={workbench.setNotice} />}
-      {navigation.module === "models" && <BusinessModelSettings onError={workbench.setError} onNotice={workbench.setNotice} />}
     </main>
   </div>;
 }

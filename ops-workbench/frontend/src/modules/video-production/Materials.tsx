@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Boxes, FolderOpen, LoaderCircle } from "lucide-react";
 import { api } from "../../api";
 import { ClassificationDropdown } from "../../components/ClassificationDropdown";
@@ -17,6 +17,7 @@ export function Materials({ products, act }: { products: Product[]; act: (work: 
   const [selectedTags, setSelectedTags] = useState<Record<string, string[]>>({}); const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [categoryId, setCategoryId] = useState(""); const [categoryInput, setCategoryInput] = useState(""); const [tagInput, setTagInput] = useState("");
   const [selecting, setSelecting] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [classificationResult, setClassificationResult] = useState<ClassifiedMaterial[]>([]);
   const [classificationMessage, setClassificationMessage] = useState("");
   const classificationOperation = usePersistentOperation("material_classification", state => {
@@ -27,11 +28,18 @@ export function Materials({ products, act }: { products: Product[]; act: (work: 
     setCategories(categoryRows.items); setTags(tagRows.items);
   }, []);
   useEffect(() => { loadMaster().catch(() => { setCategories([]); setTags([]); }); }, [loadMaster]);
-  async function chooseVideos() {
+  async function uploadVideos(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!files.length) return;
     setSelecting(true);
     try {
-      const result = await api<{ path: string; cancelled: boolean; videos: SourceVideo[] }>("/human/source-directory/select", { method: "POST", body: JSON.stringify({ initial_path: sourceDir }) });
-      if (!result.cancelled) { setSourceDir(result.path); setVideos(result.videos); setSelectedTags({}); setSelectedVideos([]); }
+      const form = new FormData();
+      files.forEach(file => form.append("files", file));
+      await act(() => api<{ path: string; videos: SourceVideo[] }>("/human/source-videos/upload", { method: "POST", body: form }).then(result => {
+        setSourceDir(result.path); setVideos(result.videos); setSelectedTags({}); setSelectedVideos([]);
+        return result;
+      }), `已上传 ${files.length} 个视频`);
     } finally { setSelecting(false); }
   }
   function toggleVideo(path: string) { setSelectedVideos(value => value.includes(path) ? value.filter(item => item !== path) : [...value, path]); }
@@ -85,7 +93,7 @@ export function Materials({ products, act }: { products: Product[]; act: (work: 
       <div className="human-card full"><div className="human-card-title"><h2>产品名称与视频</h2></div>
         <div className="classification-master-inputs">
           <label>产品名称<div><input list="classify-product-hints" value={productInput} onChange={event => { setProductInput(event.target.value); setProductId(0); }} onBlur={() => { const match = activeProducts.find(item => item.name === productInput.trim()); if (match) setProductId(match.id); }} placeholder="输入可模糊查询" /><datalist id="classify-product-hints">{productMatches.map(item => <option key={item.id} value={item.name} />)}</datalist><button className="human-secondary" onMouseDown={event => event.preventDefault()} onClick={saveProduct}>新增并保存</button></div><small>{productId ? `已选择：${activeProducts.find(item => item.id === productId)?.name}` : "请选择已保存的产品"}</small></label>
-          <label>选择视频<div className="source-directory-field"><input value={sourceDir} readOnly placeholder="选择同一产品的一组视频" /><button type="button" className="human-secondary" disabled={selecting} onClick={chooseVideos}>{selecting ? <LoaderCircle className="spin" /> : <FolderOpen />}{selecting ? "等待窗口" : "选择视频"}</button></div><small>{videos.length > 0 ? `已选择 ${videos.length} 个视频` : "请选择同一产品的一组视频"}</small></label>
+          <label>选择视频<div className="source-directory-field"><input value={sourceDir} readOnly placeholder="从电脑选择同一产品的一组视频" /><input ref={videoInputRef} type="file" accept="video/*,.mp4,.mov,.m4v,.avi,.mkv,.webm" multiple hidden onChange={uploadVideos} /><button type="button" className="human-secondary" disabled={selecting} onClick={() => videoInputRef.current?.click()}>{selecting ? <LoaderCircle className="spin" /> : <FolderOpen />}{selecting ? "正在上传" : "选择视频"}</button></div><small>{videos.length > 0 ? `已上传 ${videos.length} 个视频，可开始打标签` : "点击后从当前电脑选择视频，可多选"}</small></label>
         </div>
       </div>
       <div className="human-card full"><div className="human-card-title"><h2>批量选择与打标签</h2><span>未打标签的视频不能归类</span></div>

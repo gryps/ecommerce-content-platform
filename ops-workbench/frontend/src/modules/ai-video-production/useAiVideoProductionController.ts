@@ -1,6 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
-import type { ImageProduct, ImageTask } from "../../types";
 import type { Asset, GenerationTask, ProductProject, Shot, TaskEvent, WorkbenchStore, WorkflowTemplate } from "./types";
 
 const emptyStore: WorkbenchStore = { projects: [], assets: [], shots: [], tasks: [] };
@@ -8,8 +7,6 @@ const emptyStore: WorkbenchStore = { projects: [], assets: [], shots: [], tasks:
 export function useAiVideoProductionController() {
   const [store, setStore] = useState<WorkbenchStore>(emptyStore);
   const [workflows, setWorkflows] = useState<WorkflowTemplate[]>([]);
-  const [imageProducts, setImageProducts] = useState<ImageProduct[]>([]);
-  const [imageTasks, setImageTasks] = useState<ImageTask[]>([]);
   const [taskEvents, setTaskEvents] = useState<Record<string, TaskEvent[]>>({});
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,24 +37,10 @@ export function useAiVideoProductionController() {
     }
   }, []);
 
-  const loadImageProductionAssets = useCallback(async () => {
-    try {
-      const [products, tasks] = await Promise.all([
-        api<{ items: ImageProduct[] }>("/images/products"),
-        api<{ items: ImageTask[] }>("/images/tasks"),
-      ]);
-      setImageProducts(products.items);
-      setImageTasks(tasks.items);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "图片生产商品图加载失败");
-    }
-  }, []);
-
   useEffect(() => {
     refresh();
     loadWorkflows();
-    loadImageProductionAssets();
-  }, [refresh, loadWorkflows, loadImageProductionAssets]);
+  }, [refresh, loadWorkflows]);
 
   const selectedProject = useMemo(
     () => store.projects.find(project => project.id === selectedProjectId) || store.projects[0] || null,
@@ -222,32 +205,6 @@ export function useAiVideoProductionController() {
     }
   }
 
-  async function importImageProductionAsset(payload: { product: ImageProduct; task: ImageTask; outputIndex: number; projectId?: string }) {
-    const projectId = payload.projectId || selectedProject?.id;
-    if (!projectId) return;
-    const output = payload.task.output_images[payload.outputIndex];
-    if (!output) return;
-    setError("");
-    setLoading(true);
-    try {
-      const asset = await api<Asset>("/ai-video/assets/from-image-production", {
-        method: "POST",
-        body: JSON.stringify({
-          project_id: projectId,
-          task_id: payload.task.id,
-          output_index: payload.outputIndex,
-        }),
-      });
-      setMessage("已引用图片生产商品图");
-      await refresh();
-      return asset;
-    } catch (reason) {
-      actionError(reason, "图片生产商品图引用失败");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function createTask(
     workflowName: string,
     prompt: string,
@@ -369,8 +326,6 @@ export function useAiVideoProductionController() {
   return {
     store,
     workflows,
-    imageProducts,
-    imageTasks,
     taskEvents,
     selectedProject,
     selectedProjectId,
@@ -387,8 +342,6 @@ export function useAiVideoProductionController() {
     deleteProject,
     addAsset,
     uploadAsset,
-    importImageProductionAsset,
-    loadImageProductionAssets,
     draftShots,
     updateShot,
     translatePrompt,

@@ -1,13 +1,12 @@
 # 电商内容平台运行目录
 
-`ops-workbench` 是当前可运行代码目录，只承载图片生产、视频生产、AI 视频和内容生产所需的模型配置。
+`ops-workbench` 是当前可运行代码目录，只承载视频生产、AI 视频和内容生产所需的后台模型能力。
 
-当前版本：3.0.0
+当前版本：3.1.0
 
 业务文档：
 
 - 视频与 AI 视频：`../commerce-video-workbench/`
-- 图片生产：`../commerce-image-workbench/`
 - 运行代码模块上下文：`docs/modules/`
 - 小主机部署交接：`../docs/SMALL_HOST_HANDOFF.md`
 

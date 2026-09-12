@@ -98,51 +98,6 @@ def test_ai_video_task_creation_validates_required_assets(workbench_database, mo
     assert "product" in str(missing_asset.value.detail)
 
 
-def test_ai_video_imports_approved_image_production_asset(workbench_database, monkeypatch):
-    monkeypatch.setattr(ai_video_repository, "path", workbench_database / "ai-video" / "databases" / "workbench.json")
-    project = create_ai_video_project(ProductProject(name="图片生产转宣传片", product_name="珍珠流苏发簪"), _admin=admin())
-    output_path = workbench_database / "image-output.png"
-    output_path.write_bytes(b"image-bytes")
-    with session_scope() as session:
-        product = CommerceImageProduct(product_code="IMG001", name="珍珠流苏发簪")
-        session.add(product)
-        session.flush()
-        image_task = CommerceImageTask(
-            product_id=product.id,
-            template_id="white-bg",
-            template_name="白底图",
-            model="mock-image-model",
-            prompt="prompt",
-            negative_prompt="",
-            output_images=[{"name": output_path.name, "path": str(output_path), "image_type": "白底图"}],
-            status="archived",
-            review_status="approved",
-        )
-        session.add(image_task)
-        session.flush()
-        task_id = image_task.id
-
-    asset = import_asset_from_image_production(
-        ImageProductionAssetImport(project_id=project.id, task_id=task_id, output_index=0),
-        _admin=admin(),
-    )
-
-    assert asset.kind == "product"
-    assert asset.file_path == str(output_path.resolve())
-    assert asset.preview_url == f"/api/v1/images/tasks/{task_id}/outputs/0/file"
-    assert "来自图片生产" in asset.notes
-    request = build_video_request(
-        GenerationTask(
-            project_id=project.id,
-            engine="vendor_video",
-            workflow_name="image_to_video",
-            prompt="生成宣传片",
-            input_asset_ids=[asset.id],
-        )
-    )
-    assert request.input_files[0].path == str(output_path.resolve())
-
-
 def test_ai_video_project_names_are_unique_and_delete_cascades(workbench_database, monkeypatch):
     monkeypatch.setattr(ai_video_repository, "path", workbench_database / "ai-video" / "databases" / "workbench.json")
     project = create_ai_video_project(ProductProject(name="测试宣传片", product_name="商品A"), _admin=admin())

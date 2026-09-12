@@ -5,17 +5,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import select
 
-from app.core.database import session_scope
-from app.domain.models import AdminUser, CommerceImageProduct, CommerceImageTask
+from app.domain.models import AdminUser
 from app.services.ai_video.comfyui_client import ComfyUIClient
 from app.services.ai_video.director import draft_shots, translate_prompt
 from app.services.ai_video.executor import refresh_generation_task, submit_generation_task
 from app.services.ai_video.models import (
     Asset,
     GenerationTask,
-    ImageProductionAssetImport,
     ProductProject,
     Shot,
     TaskEvent,
@@ -75,46 +72,6 @@ def create_asset(payload: Asset, _admin: AdminUser = Depends(require_admin)) -> 
         return repository.add_asset(asset)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-
-
-@router.post("/assets/from-image-production", response_model=Asset, status_code=status.HTTP_201_CREATED)
-def import_asset_from_image_production(
-    payload: ImageProductionAssetImport,
-    _admin: AdminUser = Depends(require_admin),
-) -> Asset:
-    store = repository.load()
-    if not any(project.id == payload.project_id for project in store.projects):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI视频项目不存在")
-    with session_scope() as session:
-        task = session.get(CommerceImageTask, payload.task_id)
-        if task is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片生产任务不存在")
-        if task.review_status != "approved":
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="只能引用审核通过的图片生产结果")
-        outputs = list(task.output_images or [])
-        if payload.output_index >= len(outputs):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片生产结果不存在")
-        output = outputs[payload.output_index]
-        raw_path = str(output.get("path") or "")
-        try:
-            path = Path(raw_path).resolve(strict=True)
-        except OSError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片生产结果文件不可访问") from exc
-        if not path.is_file():
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="图片生产结果文件不可访问")
-        product = session.scalar(select(CommerceImageProduct).where(CommerceImageProduct.id == task.product_id))
-        product_label = f"{product.product_code} · {product.name}" if product else task.product_id
-        image_type = str(output.get("image_type") or "商品图")
-        name = str(output.get("name") or path.name)
-        asset = Asset(
-            project_id=payload.project_id,
-            kind="product",
-            name=f"{product_label} · {image_type} · {name}",
-            file_path=str(path),
-            preview_url=f"/api/v1/images/tasks/{task.id}/outputs/{payload.output_index}/file",
-            notes=f"来自图片生产：{product_label} · {task.template_name}",
-        )
-    return repository.add_asset(asset)
 
 
 @router.post("/assets/upload", response_model=Asset, status_code=status.HTTP_201_CREATED)

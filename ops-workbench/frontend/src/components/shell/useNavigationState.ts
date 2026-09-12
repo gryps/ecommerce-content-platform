@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ImageView, PlatformModule, View } from "../../types";
+import type { PlatformModule, View } from "../../types";
 import {
   getActiveTitle,
   getExpandedModule,
@@ -10,9 +10,7 @@ import {
 } from "./moduleNavigation";
 
 const validModules: PlatformModule[] = [
-  "images",
   "aiVideo",
-  "models",
   "video",
 ];
 
@@ -38,7 +36,6 @@ const storedExpandedModules = (module: PlatformModule): ModuleNavKey[] => {
 export function useNavigationState() {
   const [module, setModule] = useState<PlatformModule>(storedPlatformModule);
   const [view, setView] = useState<View>("flow");
-  const [imageView, setImageView] = useState<ImageView>("overview");
   const [expandedModules, setExpandedModules] = useState<ModuleNavKey[]>(() => storedExpandedModules(module));
   const [selectedSecondaryOwner, setSelectedSecondaryOwner] = useState<ModuleNavKey | "">("");
 
@@ -51,7 +48,7 @@ export function useNavigationState() {
   }, [expandedModules]);
 
   const handlePrimaryModuleClick = (item: ModuleNavItem) => {
-    const hasSecondaryNav = item.key === "video" || item.key === "images";
+    const hasSecondaryNav = item.key === "video";
     if (hasSecondaryNav) {
       setExpandedModules(current => current.includes(item.key) ? current.filter(key => key !== item.key) : [...current, item.key]);
     } else {
@@ -67,22 +64,14 @@ export function useNavigationState() {
     setView(key);
   };
 
-  const selectImageView = (owner: ModuleNavKey, key: ImageView) => {
-    setSelectedSecondaryOwner(owner);
-    setModule("images");
-    setImageView(key);
-  };
-
   return {
     module,
     view,
-    imageView,
     expandedModules,
     selectedSecondaryOwner,
-    activeTitle: getActiveTitle(module, view, imageView),
+    activeTitle: getActiveTitle(module, view),
     headerSubtitle: getHeaderSubtitle(module),
     handlePrimaryModuleClick,
     selectVideoView,
-    selectImageView,
   };
 }
