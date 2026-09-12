@@ -4,12 +4,13 @@ import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 
 from app.core.database import session_scope
 from app.domain.models import AdminUser, CommerceImageProduct, CommerceImageTask
 from app.services.ai_video.comfyui_client import ComfyUIClient
-from app.services.ai_video.director import draft_shots
+from app.services.ai_video.director import draft_shots, translate_prompt
 from app.services.ai_video.executor import refresh_generation_task, submit_generation_task
 from app.services.ai_video.models import (
     Asset,
@@ -22,7 +23,7 @@ from app.services.ai_video.models import (
     WorkflowTemplate,
 )
 from app.services.ai_video.store import repository
-from app.services.ai_video.workflow_registry import list_workflow_templates
+from app.services.ai_video.workflow_registry import get_workflow_template, list_workflow_templates
 from app.services.auth import require_admin
 
 
@@ -44,6 +45,17 @@ def create_project(payload: ProductProject, _admin: AdminUser = Depends(require_
     project = ProductProject(**payload.model_dump(exclude={"id", "created_at", "updated_at"}))
     try:
         return repository.add_project(project)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.patch("/projects/{project_id}", response_model=ProductProject)
+def update_project(project_id: str, payload: ProductProject, _admin: AdminUser = Depends(require_admin)) -> ProductProject:
+    project = ProductProject(**payload.model_dump(exclude={"id", "created_at", "updated_at"}))
+    try:
+        return repository.update_project(project_id, project)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
@@ -124,23 +136,107 @@ def upload_asset(
     target = storage_dir / filename
     with target.open("wb") as output:
         shutil.copyfileobj(file.file, output)
-    asset = Asset(project_id=project_id, id=asset_id, kind=kind, name=name or filename, notes=notes, file_path=str(target))
+    asset = Asset(
+        project_id=project_id,
+        id=asset_id,
+        kind=kind,
+        name=name or filename,
+        notes=notes,
+        file_path=str(target),
+        preview_url=f"/api/v1/ai-video/assets/{asset_id}/file",
+    )
     return repository.add_asset(asset)
 
 
+@router.get("/assets/{asset_id}/file", response_class=FileResponse)
+def get_asset_file(asset_id: str, _admin: AdminUser = Depends(require_admin)) -> FileResponse:
+    store = repository.load()
+    asset = next((item for item in store.assets if item.id == asset_id), None)
+    if asset is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="资产不存在")
+    try:
+        path = Path(asset.file_path).resolve(strict=True)
+    except OSError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="资产文件不可访问") from exc
+    if not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="资产文件不可访问")
+    return FileResponse(path, filename=path.name)
+
+
 @router.post("/director/draft-shots", response_model=list[Shot])
-def create_director_shots(payload: dict[str, str], _admin: AdminUser = Depends(require_admin)) -> list[Shot]:
-    project_id = payload.get("project_id", "")
+def create_director_shots(payload: dict[str, object], _admin: AdminUser = Depends(require_admin)) -> list[Shot]:
+    project_id = str(payload.get("project_id", ""))
+    try:
+        shot_count = int(payload.get("shot_count", 5))
+    except (TypeError, ValueError):
+        shot_count = 5
+    shot_count = max(3, min(shot_count, 8))
     store = repository.load()
     project = next((item for item in store.projects if item.id == project_id), None)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI视频项目不存在")
-    return repository.replace_project_shots(project.id, draft_shots(project))
+    try:
+        shots = draft_shots(project, store.assets, shot_count=shot_count)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+    return repository.replace_project_shots(project.id, shots)
+
+
+@router.patch("/director/shots/{shot_id}", response_model=Shot)
+def update_director_shot(shot_id: str, payload: Shot, _admin: AdminUser = Depends(require_admin)) -> Shot:
+    try:
+        return repository.update_shot(shot_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post("/director/translate-prompt")
+def translate_director_prompt(payload: dict[str, object], _admin: AdminUser = Depends(require_admin)) -> dict[str, list[dict[str, str]]]:
+    prompt = str(payload.get("prompt") or "")
+    try:
+        return {"phrases": translate_prompt(prompt)}
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
 
 @router.post("/generation/tasks", response_model=GenerationTask, status_code=status.HTTP_201_CREATED)
 def create_generation_task(payload: GenerationTask, _admin: AdminUser = Depends(require_admin)) -> GenerationTask:
-    task = GenerationTask(**payload.model_dump(exclude={"id", "status", "created_at", "updated_at"}), status="queued")
+    try:
+        template = get_workflow_template(payload.workflow_name, Path("workflows/comfyui"))
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    if not template.available:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=template.availability_note or "当前工作流模板不可用",
+        )
+
+    store = repository.load()
+    if not any(project.id == payload.project_id for project in store.projects):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI视频项目不存在")
+
+    project_assets = [asset for asset in store.assets if asset.project_id == payload.project_id]
+    missing_kinds = [
+        kind
+        for kind in template.required_asset_kinds
+        if not any(asset.kind == kind and asset.id in payload.input_asset_ids for asset in project_assets)
+    ]
+    if missing_kinds:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"当前工作流缺少必需资产：{', '.join(missing_kinds)}",
+        )
+
+    task = GenerationTask(
+        **payload.model_dump(exclude={"id", "engine", "status", "created_at", "updated_at"}),
+        engine=template.default_engine,
+        status="queued",
+    )
     try:
         return repository.add_task(task)
     except LookupError as exc:
@@ -161,6 +257,32 @@ async def refresh_task(task_id: str, _admin: AdminUser = Depends(require_admin))
         return await refresh_generation_task(task_id)
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.delete("/generation/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(task_id: str, _admin: AdminUser = Depends(require_admin)) -> None:
+    try:
+        repository.delete_task(task_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/generation/tasks/{task_id}/outputs/{output_index}/file", response_class=FileResponse)
+def get_task_output_file(task_id: str, output_index: int, _admin: AdminUser = Depends(require_admin)) -> FileResponse:
+    try:
+        task = repository.get_task(task_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    if output_index < 0 or output_index >= len(task.output_paths):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="输出文件不存在")
+    try:
+        path = Path(task.output_paths[output_index]).resolve(strict=True)
+    except OSError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="输出文件不可访问") from exc
+    storage_root = repository.storage_root.resolve()
+    if not path.is_file() or storage_root not in path.parents:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="输出文件不可访问")
+    return FileResponse(path, filename=path.name, media_type="video/mp4")
 
 
 @router.get("/generation/tasks/{task_id}/events", response_model=list[TaskEvent])

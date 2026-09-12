@@ -73,6 +73,9 @@ class GenerationTask(BaseModel):
     workflow_name: str
     prompt: str = ""
     input_asset_ids: list[str] = Field(default_factory=list)
+    duration_seconds: int = Field(default=5, ge=1, le=30)
+    aspect_ratio: str = "9:16"
+    resolution: str = "720p"
     provider_task_id: str = ""
     status: TaskStatus = "draft"
     output_paths: list[str] = Field(default_factory=list)

@@ -9,7 +9,7 @@ _WORKFLOW_TEMPLATES = [
     WorkflowTemplate(
         name="text_to_video",
         label="文生视频",
-        description="使用业务提示词直接生成宣传片片段，适合先跑创意方向。",
+        description="使用业务提示词直接生成 AI 视频片段，适合先跑创意方向。",
         default_engine="vendor_video",
         mode="t2v",
     ),
@@ -57,3 +57,10 @@ def list_workflow_templates(workflows_dir: Path | None = None) -> list[WorkflowT
                     item.availability_note += "，当前仅有 example 占位文件"
         templates.append(item)
     return templates
+
+
+def get_workflow_template(workflow_name: str, workflows_dir: Path | None = None) -> WorkflowTemplate:
+    for template in list_workflow_templates(workflows_dir):
+        if template.name == workflow_name:
+            return template
+    raise LookupError("AI视频工作流模板不存在")

@@ -78,7 +78,7 @@ export const moduleGroups: Array<{ title: string; items: ModuleNavItem[] }> = [
     items: [
       { key: "images", label: "图片生产", Icon: ImageIcon },
       { key: "video", label: "视频生产", Icon: Film },
-      { key: "aiVideo", label: "AI宣传片", Icon: WandSparkles },
+      { key: "aiVideo", label: "AI视频", Icon: WandSparkles },
     ],
   },
   { title: "系统配置", items: [{ key: "models", label: "模型配置", Icon: Settings }] },
@@ -99,7 +99,7 @@ export function getRoleModuleTitle(value: PlatformModule) {
 export function getActiveTitle(module: PlatformModule, view: View, imageView: ImageView, operationView: OperationView) {
   if (module === "operations") return operationNav.find(([key]) => key === operationView)?.[1];
   if (module === "video") return videoNav.find(([key]) => key === view)?.[1];
-  if (module === "aiVideo") return "AI宣传片";
+  if (module === "aiVideo") return "AI视频";
   if (module === "images") return imageNav.find(([key]) => key === imageView)?.[1];
   return getRoleModuleTitle(module) ?? "模型配置";
 }

@@ -50,23 +50,52 @@ def test_ai_video_project_asset_shot_and_task_flow(workbench_database, monkeypat
         GenerationTask(
             project_id=project.id,
             engine="comfyui",
-            workflow_name="product_keyframe",
+            workflow_name="image_to_video",
             prompt=shots[0].prompt,
             input_asset_ids=[asset.id],
         ),
         _admin=admin(),
     )
     assert task.status == "queued"
+    assert task.engine == "vendor_video"
     assert task.input_asset_ids == [asset.id]
     with session_scope() as session:
         events = session.scalars(select(AiVideoTaskEvent).where(AiVideoTaskEvent.task_id == task.id)).all()
         assert [event.event_type for event in events] == ["created"]
 
-    submitted = awaitable(submit_ai_video_task(task.id, _admin=admin()))
-    assert submitted.status == "failed"
-    assert "占位文件" in submitted.error
-    event_types = [event.event_type for event in list_ai_video_task_events(task.id, _admin=admin())]
-    assert event_types == ["created", "submit_failed"]
+    with pytest.raises(HTTPException) as unavailable:
+        create_generation_task(
+            GenerationTask(
+                project_id=project.id,
+                engine="comfyui",
+                workflow_name="comfyui_business_workflow",
+                prompt=shots[0].prompt,
+                input_asset_ids=[asset.id],
+            ),
+            _admin=admin(),
+        )
+    assert unavailable.value.status_code == 409
+    assert "workflow" in str(unavailable.value.detail).casefold()
+
+
+def test_ai_video_task_creation_validates_required_assets(workbench_database, monkeypatch):
+    monkeypatch.setattr(ai_video_repository, "path", workbench_database / "ai-video" / "databases" / "workbench.json")
+    project = create_ai_video_project(ProductProject(name="缺少商品图测试", product_name="珍珠流苏发簪"), _admin=admin())
+
+    with pytest.raises(HTTPException) as missing_asset:
+        create_generation_task(
+            GenerationTask(
+                project_id=project.id,
+                engine="vendor_video",
+                workflow_name="image_to_video",
+                prompt="商品轻微旋转",
+                input_asset_ids=[],
+            ),
+            _admin=admin(),
+        )
+
+    assert missing_asset.value.status_code == 409
+    assert "product" in str(missing_asset.value.detail)
 
 
 def test_ai_video_imports_approved_image_production_asset(workbench_database, monkeypatch):

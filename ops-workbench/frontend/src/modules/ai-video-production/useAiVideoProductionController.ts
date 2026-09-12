@@ -103,6 +103,22 @@ export function useAiVideoProductionController() {
     }
   }
 
+  async function updateProject(projectId: string, payload: Pick<ProductProject, "name" | "product_name" | "selling_points" | "audience" | "tone" | "status">) {
+    setError("");
+    setLoading(true);
+    try {
+      const project = await api<ProductProject>(`/ai-video/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(payload) });
+      setSelectedProjectId(project.id);
+      setMessage("项目信息已保存");
+      await refresh();
+      return project;
+    } catch (reason) {
+      actionError(reason, "项目信息保存失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function deleteProject(projectId: string) {
     setError("");
     setLoading(true);
@@ -122,12 +138,12 @@ export function useAiVideoProductionController() {
     }
   }
 
-  async function draftShots() {
+  async function draftShots(shotCount = 5) {
     if (!selectedProject) return;
     setError("");
     setLoading(true);
     try {
-      const shots = await api<Shot[]>("/ai-video/director/draft-shots", { method: "POST", body: JSON.stringify({ project_id: selectedProject.id }) });
+      const shots = await api<Shot[]>("/ai-video/director/draft-shots", { method: "POST", body: JSON.stringify({ project_id: selectedProject.id, shot_count: shotCount }) });
       setMessage("导演分镜已生成");
       await refresh();
       return shots;
@@ -138,14 +154,41 @@ export function useAiVideoProductionController() {
     }
   }
 
-  async function addAsset(kind: string, name: string, notes: string) {
-    if (!selectedProject) return;
+  async function updateShot(shot: Shot) {
+    setError("");
+    setLoading(true);
+    try {
+      const updated = await api<Shot>(`/ai-video/director/shots/${shot.id}`, { method: "PATCH", body: JSON.stringify(shot) });
+      setMessage("分镜提示词已保存");
+      await refresh();
+      return updated;
+    } catch (reason) {
+      actionError(reason, "分镜提示词保存失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function translatePrompt(prompt: string) {
+    setError("");
+    try {
+      return await api<{ phrases: Array<{ english: string; chinese: string }> }>("/ai-video/director/translate-prompt", {
+        method: "POST",
+        body: JSON.stringify({ prompt }),
+      });
+    } catch (reason) {
+      actionError(reason, "提示词翻译失败");
+    }
+  }
+
+  async function addAsset(kind: string, name: string, notes: string, projectId = selectedProject?.id) {
+    if (!projectId) return;
     setError("");
     setLoading(true);
     try {
       const asset = await api<Asset>("/ai-video/assets", {
         method: "POST",
-        body: JSON.stringify({ project_id: selectedProject.id, kind, name, notes }),
+        body: JSON.stringify({ project_id: projectId, kind, name, notes }),
       });
       setMessage("商品图已登记");
       await refresh();
@@ -157,13 +200,13 @@ export function useAiVideoProductionController() {
     }
   }
 
-  async function uploadAsset(kind: string, name: string, notes: string, file: File) {
-    if (!selectedProject) return;
+  async function uploadAsset(kind: string, name: string, notes: string, file: File, projectId = selectedProject?.id) {
+    if (!projectId) return;
     setError("");
     setLoading(true);
     try {
       const form = new FormData();
-      form.set("project_id", selectedProject.id);
+      form.set("project_id", projectId);
       form.set("kind", kind);
       form.set("name", name);
       form.set("notes", notes);
@@ -179,8 +222,9 @@ export function useAiVideoProductionController() {
     }
   }
 
-  async function importImageProductionAsset(payload: { product: ImageProduct; task: ImageTask; outputIndex: number }) {
-    if (!selectedProject) return;
+  async function importImageProductionAsset(payload: { product: ImageProduct; task: ImageTask; outputIndex: number; projectId?: string }) {
+    const projectId = payload.projectId || selectedProject?.id;
+    if (!projectId) return;
     const output = payload.task.output_images[payload.outputIndex];
     if (!output) return;
     setError("");
@@ -189,7 +233,7 @@ export function useAiVideoProductionController() {
       const asset = await api<Asset>("/ai-video/assets/from-image-production", {
         method: "POST",
         body: JSON.stringify({
-          project_id: selectedProject.id,
+          project_id: projectId,
           task_id: payload.task.id,
           output_index: payload.outputIndex,
         }),
@@ -204,7 +248,18 @@ export function useAiVideoProductionController() {
     }
   }
 
-  async function createTask(workflowName: string, prompt: string, engine = "comfyui", submitAfterCreate = false) {
+  async function createTask(
+    workflowName: string,
+    prompt: string,
+    engine = "comfyui",
+    submitAfterCreate = false,
+    options?: {
+      inputAssetIds?: string[];
+      durationSeconds?: number;
+      aspectRatio?: string;
+      resolution?: string;
+    },
+  ) {
     if (!selectedProject) return;
     setError("");
     setLoading(true);
@@ -216,7 +271,10 @@ export function useAiVideoProductionController() {
           engine,
           workflow_name: workflowName,
           prompt,
-          input_asset_ids: selectedProductAssets.map(asset => asset.id),
+          input_asset_ids: options?.inputAssetIds?.length ? options.inputAssetIds : selectedProductAssets.map(asset => asset.id),
+          duration_seconds: options?.durationSeconds || 5,
+          aspect_ratio: options?.aspectRatio || "9:16",
+          resolution: options?.resolution || "720p",
         }),
       });
       if (submitAfterCreate) {
@@ -278,6 +336,21 @@ export function useAiVideoProductionController() {
     }
   }
 
+  async function deleteTask(taskId: string) {
+    setError("");
+    setLoading(true);
+    try {
+      await api<void>(`/ai-video/generation/tasks/${taskId}`, { method: "DELETE" });
+      setTaskEvents(current => Object.fromEntries(Object.entries(current).filter(([id]) => id !== taskId)));
+      setMessage("生成任务已删除");
+      await refresh();
+    } catch (reason) {
+      actionError(reason, "生成任务删除失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function checkComfyUI() {
     setError("");
     setLoading(true);
@@ -310,16 +383,20 @@ export function useAiVideoProductionController() {
     error,
     setSelectedProjectId,
     createProject,
+    updateProject,
     deleteProject,
     addAsset,
     uploadAsset,
     importImageProductionAsset,
     loadImageProductionAssets,
     draftShots,
+    updateShot,
+    translatePrompt,
     createTask,
     submitTask,
     refreshTask,
     loadTaskEvents,
+    deleteTask,
     checkComfyUI,
     refresh,
   };

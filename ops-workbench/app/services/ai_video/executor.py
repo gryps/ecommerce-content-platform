@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -12,10 +14,10 @@ from app.config import settings
 from app.services.ai_video.comfyui_client import ComfyUIClient
 from app.services.ai_video.models import GenerationTask
 from app.services.ai_video.provider_adapters import (
-    OpenAICompatibleVideoAdapter,
     StandardVideoRequest,
     VideoInputFile,
     VideoProviderAdapter,
+    default_video_adapter,
     task_mode_from_workflow,
 )
 from app.services.ai_video.store import repository
@@ -50,21 +52,56 @@ def load_workflow(workflow_name: str, task: GenerationTask) -> dict[str, Any]:
     return workflow
 
 
+def _target_size(resolution: str, aspect_ratio: str) -> tuple[int, int]:
+    if aspect_ratio == "9:16":
+        return (1080, 1920) if resolution == "1080p" else (720, 1280)
+    if aspect_ratio == "16:9":
+        return (1920, 1080) if resolution == "1080p" else (1280, 720)
+    return (1080, 1080) if resolution == "1080p" else (720, 720)
+
+
+def prepare_vendor_input_image(task: GenerationTask, source: str) -> str:
+    if task.aspect_ratio != "9:16":
+        return source
+    source_path = Path(source)
+    if not source_path.exists() or shutil.which(settings.ffmpeg_binary) is None:
+        return source
+    width, height = _target_size(task.resolution, task.aspect_ratio)
+    target_dir = settings.runtime_dir / "ai-video" / "prepared-inputs" / task.project_id / task.id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / f"start-{width}x{height}.jpg"
+    command = [
+        settings.ffmpeg_binary,
+        "-y",
+        "-i",
+        str(source_path),
+        "-vf",
+        f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=white",
+        "-frames:v",
+        "1",
+        str(target),
+    ]
+    subprocess.run(command, check=True, capture_output=True, text=True, timeout=60)
+    return str(target)
+
+
 def build_video_request(task: GenerationTask) -> StandardVideoRequest:
     store = repository.load()
     assets = {asset.id: asset for asset in store.assets if asset.id in task.input_asset_ids}
-    input_files = [
-        VideoInputFile(
-            role="start_image" if index == 0 else asset.kind,
-            path=asset.file_path,
-            url=asset.preview_url,
-        )
-        for index, asset in enumerate(assets.values())
-    ]
+    input_files: list[VideoInputFile] = []
+    for index, asset in enumerate(assets.values()):
+        role = "start_image" if index == 0 else asset.kind
+        path = asset.file_path
+        if index == 0 and task_mode_from_workflow(task.workflow_name) in {"i2v", "first_last_frame"}:
+            path = prepare_vendor_input_image(task, asset.file_path)
+        input_files.append(VideoInputFile(role=role, path=path, url=asset.preview_url))
     return StandardVideoRequest(
         mode=task_mode_from_workflow(task.workflow_name),
         prompt=task.prompt,
         input_files=input_files,
+        duration=task.duration_seconds,
+        aspect_ratio=task.aspect_ratio,
+        resolution=task.resolution,
         metadata={"project_id": task.project_id, "task_id": task.id, "workflow_name": task.workflow_name},
     )
 
@@ -112,7 +149,7 @@ async def submit_generation_task(
     if task.engine == "vendor_video":
         try:
             request = build_video_request(task)
-            result = await (video_adapter or OpenAICompatibleVideoAdapter()).submit(request)
+            result = await (video_adapter or default_video_adapter()).submit(request)
             return repository.update_task_status(
                 task_id,
                 status="running" if result.status in {"queued", "running"} else result.status,
@@ -184,13 +221,15 @@ async def refresh_generation_task(
             message="缺少厂商任务 ID",
         )
     try:
-        result = await (video_adapter or OpenAICompatibleVideoAdapter()).get_status(task.provider_task_id)
+        result = await (video_adapter or default_video_adapter()).get_status(task.provider_task_id)
         output_paths = result.output_paths
-        if result.status == "succeeded" and output_paths:
+        status = result.status
+        if output_paths:
             output_paths = await localize_output_paths(task, output_paths, output_downloader)
+            status = "succeeded"
         return repository.update_task_status(
             task_id,
-            status=result.status,
+            status=status,
             output_paths=output_paths,
             error=result.error,
             event_type="status_checked",

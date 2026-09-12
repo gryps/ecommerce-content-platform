@@ -42,6 +42,9 @@ export interface GenerationTask {
   status: string;
   prompt: string;
   input_asset_ids: string[];
+  duration_seconds: number;
+  aspect_ratio: string;
+  resolution: string;
   provider_task_id: string;
   output_paths: string[];
   error: string;

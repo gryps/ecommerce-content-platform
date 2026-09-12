@@ -112,6 +112,9 @@ class AiVideoRepository:
                     workflow_name=row.workflow_name,
                     prompt=row.prompt,
                     input_asset_ids=list(row.input_asset_ids or []),
+                    duration_seconds=getattr(row, "duration_seconds", 5),
+                    aspect_ratio=getattr(row, "aspect_ratio", "9:16"),
+                    resolution=getattr(row, "resolution", "720p"),
                     provider_task_id=row.provider_task_id,
                     status=row.status,
                     output_paths=list(row.output_paths or []),
@@ -153,6 +156,40 @@ class AiVideoRepository:
             session.add(self._project_row(project))
         return project
 
+    def update_project(self, project_id: str, payload: ProductProject) -> ProductProject:
+        payload.name = payload.name.strip()
+        payload.product_name = payload.product_name.strip()
+        if not payload.name:
+            raise ValueError("AI视频项目名不能为空")
+        with session_scope() as session:
+            row = self._require_project(session, project_id)
+            duplicate = session.scalar(
+                select(AiVideoProject.id)
+                .where(func.lower(AiVideoProject.name) == payload.name.lower(), AiVideoProject.id != project_id)
+                .limit(1)
+            )
+            if duplicate:
+                raise ValueError("AI视频项目名已存在")
+            row.name = payload.name
+            row.product_name = payload.product_name
+            row.selling_points = payload.selling_points.strip()
+            row.audience = payload.audience.strip()
+            row.tone = payload.tone.strip()
+            row.status = payload.status or row.status
+            row.updated_at = datetime.now().astimezone()
+            session.flush()
+            return ProductProject(
+                id=row.id,
+                name=row.name,
+                product_name=row.product_name,
+                selling_points=row.selling_points,
+                audience=row.audience,
+                tone=row.tone,
+                status=row.status,
+                created_at=_iso(row.created_at),
+                updated_at=_iso(row.updated_at),
+            )
+
     def delete_project(self, project_id: str) -> None:
         with session_scope() as session:
             project = self._require_project(session, project_id)
@@ -186,6 +223,35 @@ class AiVideoRepository:
                 session.add(self._shot_row(shot))
         return shots
 
+    def update_shot(self, shot_id: str, payload: Shot) -> Shot:
+        with session_scope() as session:
+            row = session.get(AiVideoShot, shot_id)
+            if row is None:
+                raise LookupError("AI视频分镜不存在")
+            row.title = payload.title.strip() or row.title
+            row.duration_seconds = payload.duration_seconds
+            row.visual_goal = payload.visual_goal.strip()
+            row.camera = payload.camera.strip()
+            row.prompt = payload.prompt.strip()
+            row.negative_prompt = payload.negative_prompt.strip()
+            row.required_asset_kinds = list(payload.required_asset_kinds)
+            row.updated_at = datetime.now().astimezone()
+            session.flush()
+            return Shot(
+                id=row.id,
+                project_id=row.project_id,
+                order=row.order_index,
+                title=row.title,
+                duration_seconds=row.duration_seconds,
+                visual_goal=row.visual_goal,
+                camera=row.camera,
+                prompt=row.prompt,
+                negative_prompt=row.negative_prompt,
+                required_asset_kinds=list(row.required_asset_kinds or []),
+                created_at=_iso(row.created_at),
+                updated_at=_iso(row.updated_at),
+            )
+
     def add_task(self, task: GenerationTask) -> GenerationTask:
         task.updated_at = now_iso()
         with session_scope() as session:
@@ -196,7 +262,13 @@ class AiVideoRepository:
                     task_id=task.id,
                     event_type="created",
                     message="生成任务已创建",
-                    payload={"engine": task.engine, "workflow_name": task.workflow_name},
+                    payload={
+                        "engine": task.engine,
+                        "workflow_name": task.workflow_name,
+                        "duration_seconds": task.duration_seconds,
+                        "aspect_ratio": task.aspect_ratio,
+                        "resolution": task.resolution,
+                    },
                 )
             )
         return task
@@ -207,6 +279,15 @@ class AiVideoRepository:
             if row is None:
                 raise LookupError("AI视频任务不存在")
             return self._task_model(row)
+
+    def delete_task(self, task_id: str) -> None:
+        with session_scope() as session:
+            row = session.get(AiVideoGenerationTask, task_id)
+            if row is None:
+                raise LookupError("AI视频任务不存在")
+            for event in session.scalars(select(AiVideoTaskEvent).where(AiVideoTaskEvent.task_id == task_id)).all():
+                session.delete(event)
+            session.delete(row)
 
     def task_events(self, task_id: str) -> list[TaskEvent]:
         with session_scope() as session:
@@ -347,6 +428,9 @@ class AiVideoRepository:
             workflow_name=task.workflow_name,
             prompt=task.prompt,
             input_asset_ids=list(task.input_asset_ids),
+            duration_seconds=task.duration_seconds,
+            aspect_ratio=task.aspect_ratio,
+            resolution=task.resolution,
             provider_task_id=task.provider_task_id,
             status=task.status,
             output_paths=list(task.output_paths),
@@ -364,6 +448,9 @@ class AiVideoRepository:
             workflow_name=row.workflow_name,
             prompt=row.prompt,
             input_asset_ids=list(row.input_asset_ids or []),
+            duration_seconds=getattr(row, "duration_seconds", 5),
+            aspect_ratio=getattr(row, "aspect_ratio", "9:16"),
+            resolution=getattr(row, "resolution", "720p"),
             provider_task_id=row.provider_task_id,
             status=row.status,
             output_paths=list(row.output_paths or []),
